@@ -1,4 +1,3 @@
-
 export interface LineAnalysis {
   lineNumber: number;
   analysis: string;
@@ -9,4 +8,4 @@ export interface AnalysisResult {
   lines: LineAnalysis[];
 }
 
-export type Language = 'python' | 'java';
+export type Language = 'python' | 'java' | 'cpp';

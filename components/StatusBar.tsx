@@ -1,14 +1,25 @@
-
 import React from 'react';
+import type { Language } from '../types';
 
 interface StatusBarProps {
   bigO: string | null;
   isLoading: boolean;
+  language: Language;
 }
 
-const StatusBar: React.FC<StatusBarProps> = ({ bigO, isLoading }) => {
+const StatusBar: React.FC<StatusBarProps> = ({ bigO, isLoading, language }) => {
+  const capitalize = (s: string) => {
+    if (s === 'cpp') return 'C++';
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  const hasError = bigO === "Error";
+  const barClasses = hasError 
+    ? 'bg-red-900/50 border-red-700/50 text-red-300' 
+    : 'bg-gray-900 border-gray-700 text-gray-400';
+
   return (
-    <div className="w-full bg-gray-900 border-t border-gray-700 px-4 py-2 flex items-center justify-between text-sm text-gray-400 rounded-b-lg">
+    <div className={`w-full ${barClasses} border-t px-4 py-2 flex items-center justify-between text-sm shrink-0 transition-colors duration-300`}>
       <div>
         {isLoading ? (
           <div className="flex items-center">
@@ -19,12 +30,12 @@ const StatusBar: React.FC<StatusBarProps> = ({ bigO, isLoading }) => {
             <span>Analyzing...</span>
           </div>
         ) : (
-          <span>Ready</span>
+          <span>Language: <span className={`font-semibold ${hasError ? 'text-red-200' : 'text-gray-300'}`}>{capitalize(language)}</span></span>
         )}
       </div>
-      <div className="font-bold text-lg text-indigo-400">
-        {bigO && bigO !== "Error" && <span>{bigO}</span>}
-        {bigO === "Error" && <span className="text-red-500">Analysis Failed</span>}
+      <div className="font-bold text-lg">
+        {bigO && !hasError && <span className="text-indigo-400">{bigO}</span>}
+        {hasError && <span className="text-red-400">Analysis Failed</span>}
       </div>
     </div>
   );

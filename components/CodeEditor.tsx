@@ -1,91 +1,80 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Prism from 'prismjs';
-import 'prismjs/components/prism-clike';
-import 'prismjs/components/prism-java';
-import 'prismjs/components/prism-python';
-import type { AnalysisResult, Language } from '../types';
+
+import React, { useRef, useEffect } from 'react';
+import type { LineAnalysis } from '../types';
 
 interface CodeEditorProps {
   code: string;
   onCodeChange: (newCode: string) => void;
-  language: Language;
-  analysisResult: AnalysisResult | null;
+  analysisLines: LineAnalysis[];
 }
 
-const CodeEditor: React.FC<CodeEditorProps> = ({ code, onCodeChange, language, analysisResult }) => {
-  const [highlightedCode, setHighlightedCode] = useState('');
-  const lineNumbersRef = useRef<HTMLDivElement>(null);
+const CodeEditor: React.FC<CodeEditorProps> = ({ code, onCodeChange, analysisLines }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const preRef = useRef<HTMLPreElement>(null);
+  const lineNumbersRef = useRef<HTMLDivElement>(null);
+  const analysisRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const grammar = Prism.languages[language];
-    if (grammar) {
-      const finalCode = code.length > 0 ? code : ' '; // Prism needs non-empty string
-      setHighlightedCode(Prism.highlight(finalCode, grammar, language));
-    } else {
-      setHighlightedCode(code); // Fallback for no grammar
+  const lines = code.split('\n');
+  const lineCount = lines.length > 0 ? lines.length : 1;
+
+  const analysisMap = new Map<number, string>();
+  analysisLines.forEach(line => {
+    analysisMap.set(line.lineNumber, line.analysis);
+  });
+
+  const syncScroll = () => {
+    if (textareaRef.current && lineNumbersRef.current && analysisRef.current) {
+        const top = textareaRef.current.scrollTop;
+        lineNumbersRef.current.scrollTop = top;
+        analysisRef.current.scrollTop = top;
     }
-  }, [code, language]);
-
-  const syncScroll = useCallback(() => {
-    if (lineNumbersRef.current && textareaRef.current && preRef.current) {
-      const top = textareaRef.current.scrollTop;
-      const left = textareaRef.current.scrollLeft;
-      lineNumbersRef.current.scrollTop = top;
-      preRef.current.scrollTop = top;
-      preRef.current.scrollLeft = left;
-    }
-  }, []);
-
-  const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onCodeChange(e.target.value);
   };
 
-  const lineCount = code.split('\n').length;
+  useEffect(() => {
+    syncScroll();
+  }, [code, analysisLines]);
 
   return (
-    <div className="flex w-full h-full font-mono text-sm border border-gray-700 rounded-b-lg overflow-hidden bg-gray-800 shadow-lg">
+    <div className="flex-grow flex min-h-0 bg-gray-800/50 font-mono text-base relative border-y border-gray-700">
       <div
         ref={lineNumbersRef}
-        className="line-numbers p-3 text-right bg-gray-900 text-gray-500 select-none overflow-y-hidden"
+        className="text-right text-gray-500 py-4 pl-4 pr-2 select-none overflow-y-hidden"
+        style={{ lineHeight: '1.5rem' }}
+        aria-hidden="true"
+      >
+        {Array.from({ length: lineCount }, (_, i) => (
+          <div key={i}>{i + 1}</div>
+        ))}
+      </div>
+      
+      <div className="relative flex-grow">
+          <textarea
+            ref={textareaRef}
+            value={code}
+            onChange={(e) => onCodeChange(e.target.value)}
+            onScroll={syncScroll}
+            className="absolute inset-0 p-4 bg-transparent text-gray-200 resize-none focus:outline-none w-full h-full leading-6"
+            style={{
+              fontFamily: 'inherit',
+              tabSize: 4,
+              MozTabSize: 4,
+            }}
+            spellCheck="false"
+            autoCapitalize="off"
+            autoComplete="off"
+            autoCorrect="off"
+          />
+      </div>
+
+      <div 
+        ref={analysisRef}
+        className="analysis-pane text-left text-indigo-400/80 py-4 pl-2 pr-4 select-none overflow-y-hidden w-72 shrink-0 bg-gray-900/20"
         style={{ lineHeight: '1.5rem' }}
       >
-        {Array.from({ length: lineCount }, (_, i) => {
-           const lineAnalysis = analysisResult?.lines.find(l => l.lineNumber === i + 1);
-           const hasAnalysis = lineAnalysis && lineAnalysis.analysis && !['Comment', 'Empty line', 'Declaration'].includes(lineAnalysis.analysis);
-
-          return (
-            <div key={i} className="relative h-6 group flex items-center justify-end">
-              <span className={`transition-opacity duration-200 ${hasAnalysis ? 'group-hover:opacity-30' : ''}`}>{i + 1}</span>
-              {hasAnalysis && (
-                 <div className="absolute right-full mr-2 px-2 py-1 bg-indigo-500 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-20 shadow-xl pointer-events-none">
-                  {lineAnalysis.analysis}
-                </div>
-              )}
+        {Array.from({ length: lineCount }, (_, i) => (
+            <div key={i} className="truncate" title={analysisMap.get(i + 1)}>
+                {analysisMap.get(i + 1) || ''}
             </div>
-          );
-        })}
-      </div>
-       <div className="flex-grow relative overflow-hidden">
-        <textarea
-          ref={textareaRef}
-          value={code}
-          onChange={handleCodeChange}
-          onScroll={syncScroll}
-          className="code-editor-sync absolute inset-0 bg-transparent text-transparent resize-none focus:outline-none caret-indigo-400 z-10"
-          spellCheck="false"
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-        />
-        <pre
-          ref={preRef}
-          aria-hidden="true"
-          className="code-editor-sync absolute inset-0 text-gray-200 pointer-events-none"
-        >
-          <code className={`language-${language}`} dangerouslySetInnerHTML={{ __html: highlightedCode + '\n' }} />
-        </pre>
+        ))}
       </div>
     </div>
   );

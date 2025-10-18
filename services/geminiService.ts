@@ -10,7 +10,9 @@ if (!API_KEY) {
   console.warn("API_KEY is not set. Using a placeholder.");
 }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY || "YOUR_API_KEY_HERE" });
+// FIX: Per coding guidelines, initialize GoogleGenAI with a named `apiKey` parameter.
+// The fallback to an empty string prevents a crash if the key is missing, although API calls will fail.
+const ai = new GoogleGenAI({ apiKey: API_KEY || "" });
 
 const responseSchema = {
   type: Type.OBJECT,
