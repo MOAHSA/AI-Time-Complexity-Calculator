@@ -1,20 +1,21 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# AI Time Complexity Calculator (Big O Analyzer)
 
-# Run and deploy your AI Studio app
+This is an intelligent code editor built with React and powered by the Google Gemini API. It analyzes the time complexity of your code on-demand, providing the overall Big O notation and a detailed, line-by-line breakdown of execution counts.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/1UcqP-eobU7CJoP34rvB4cfF4doLqG5oK
+-   **On-Demand Analysis**: Get complexity analysis for your code with the click of a button.
+-   **Multi-Language Support**: Full support for analyzing Python, Java, and C++ code.
+-   **Detailed Breakdown**: In addition to the overall Big O notation, see the execution count formula for each line of code in a dedicated analysis pane.
+-   **Customizable Editor**: Adjust the editor's font family, font size, and line height to match your preferences.
+-   **Modern UI**: A clean, responsive, dark-themed interface built with Tailwind CSS.
 
-## Run Locally
+## How to Use
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1.  **Select a Language**: Use the settings panel (⚙️ icon) to choose between Python, Java, or C++. The editor will be pre-filled with an example.
+2.  **Write Code**: Write your own algorithm or paste one into the editor.
+3.  **Analyze**: Click the "Analyze" button in the header.
+4.  **View Results**:
+    -   The overall **Big O notation** will appear in the status bar at the bottom.
+    -   A detailed **line-by-line execution count** will appear in the pane on the right.
+5.  **Customize (Optional)**: Open the settings panel to change the editor's appearance.
