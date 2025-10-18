@@ -29,6 +29,32 @@
         background: transparent;
         caret-color: white;
       }
+      .analysis-tooltip {
+        position: absolute;
+        left: 100%;
+        top: 50%;
+        transform: translateY(-50%);
+        background-color: #1f2937; /* bg-gray-800 */
+        color: #d1d5db; /* text-gray-300 */
+        padding: 0.5rem 1rem; /* p-2 px-4 */
+        border-radius: 0.375rem; /* rounded-md */
+        z-index: 10;
+        white-space: nowrap;
+        margin-left: 1rem; /* ml-4 */
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        border: 1px solid #374151; /* border-gray-700 */
+      }
+
+      .analysis-tooltip::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        right: 100%; /* at the left edge of the tooltip */
+        transform: translateY(-50%);
+        border-width: 6px;
+        border-style: solid;
+        border-color: transparent #1f2937 transparent transparent;
+      }
     </style>
     <script type="importmap">
 {

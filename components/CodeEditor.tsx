@@ -20,9 +20,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     lineHeight
 }) => {
   const lineNumbersRef = useRef<HTMLDivElement>(null);
-  const analysisRef = useRef<HTMLDivElement>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const [lineCount, setLineCount] = useState(code.split('\n').length);
+  const [activeLine, setActiveLine] = useState<number | null>(null);
 
   useEffect(() => {
     setLineCount(code.split('\n').length);
@@ -32,9 +32,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     if (lineNumbersRef.current) {
       lineNumbersRef.current.scrollTop = e.currentTarget.scrollTop;
     }
-    if (analysisRef.current) {
-      analysisRef.current.scrollTop = e.currentTarget.scrollTop;
-    }
+  };
+
+  const handleLineNumberClick = (lineNumber: number) => {
+    setActiveLine(current => (current === lineNumber ? null : lineNumber));
+  };
+
+  const handleEditorInteraction = () => {
+    setActiveLine(null);
   };
   
   const editorStyle = {
@@ -47,36 +52,44 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     <div className="flex-grow flex font-mono relative overflow-hidden bg-gray-800" style={editorStyle}>
       <div 
         ref={lineNumbersRef} 
-        className="w-12 text-right text-gray-500 p-2 overflow-y-hidden select-none"
+        className="w-16 text-right text-gray-500 p-2 overflow-y-hidden select-none"
         aria-hidden="true"
       >
-        {Array.from({ length: lineCount }, (_, i) => (
-          <div key={i}>{i + 1}</div>
-        ))}
+        {Array.from({ length: lineCount }, (_, i) => {
+           const lineNumber = i + 1;
+           const lineAnalysis = analysisLines.find(l => l.lineNumber === lineNumber);
+           const isActive = activeLine === lineNumber;
+           return (
+             <div key={i} className="relative">
+                <span 
+                  className="cursor-pointer hover:text-gray-300 transition-colors px-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLineNumberClick(lineNumber);
+                  }}
+                >
+                    {lineNumber}
+                </span>
+                {isActive && lineAnalysis?.analysis && (
+                    <div className="analysis-tooltip">
+                        {lineAnalysis.analysis}
+                    </div>
+                )}
+             </div>
+           );
+        })}
       </div>
       <textarea
         ref={textAreaRef}
         value={code}
         onChange={(e) => onCodeChange(e.target.value)}
         onScroll={handleScroll}
+        onClick={handleEditorInteraction}
+        onFocus={handleEditorInteraction}
         spellCheck="false"
         className="flex-grow bg-transparent text-gray-100 p-2 resize-none outline-none caret-indigo-400"
         style={editorStyle}
       />
-      <div
-        ref={analysisRef}
-        className="w-64 text-left text-gray-400 p-2 overflow-y-hidden"
-        aria-label="Line by line complexity analysis"
-      >
-        {Array.from({ length: lineCount }, (_, i) => {
-           const lineAnalysis = analysisLines.find(l => l.lineNumber === i + 1);
-           return (
-             <div key={i} className="truncate" title={lineAnalysis?.analysis}>
-               {lineAnalysis?.analysis || ''}
-             </div>
-           );
-        })}
-      </div>
     </div>
   );
 };

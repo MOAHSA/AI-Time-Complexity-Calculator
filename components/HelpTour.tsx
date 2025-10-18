@@ -32,7 +32,7 @@ const HelpTour: React.FC<HelpTourProps> = ({ onClose }) => {
         <div className="p-6 text-gray-300 space-y-4">
           <p>This is an AI-powered tool to help you understand code complexity.</p>
           <ul className="list-disc list-inside space-y-2">
-            <li><strong>Code Editor:</strong> Write or paste your code in the main editor area. To the right, you'll see a line-by-line complexity analysis after you run it.</li>
+            <li><strong>Code Editor:</strong> Write or paste your code in the main editor area. After running an analysis, **click on any line number** to see its specific execution count.</li>
             <li><strong>Analyze Button:</strong> Click this to start the time complexity analysis. The overall Big O will appear in the status bar at the bottom.</li>
             <li><strong>Optimize Button:</strong> After analyzing, click this to get AI-powered suggestions for improving your code's efficiency.</li>
             <li><strong>Settings (Gear Icon):</strong> Change the language detection mode and customize the editor's appearance.</li>
