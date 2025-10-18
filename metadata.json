@@ -1,0 +1,5 @@
+{
+  "name": "AI Time Complexity Calculator",
+  "description": "An intelligent code editor that uses AI to analyze the time complexity of Python and Java code in real-time. It provides the overall Big O notation and a line-by-line breakdown of execution counts.",
+  "requestFramePermissions": []
+}
