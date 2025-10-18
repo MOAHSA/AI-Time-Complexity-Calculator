@@ -1,18 +1,30 @@
-import React, { useRef, useEffect, LegacyRef, useState, useMemo } from 'react';
-import type { LineAnalysis } from '../types';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import type { LineAnalysis, Language } from '../types';
+// Import for side-effects to create window.Prism
+import 'prismjs';
+
+// Add Prism to the global window object for TypeScript
+declare global {
+  interface Window {
+    Prism: typeof import('prismjs');
+  }
+}
 
 interface CodeEditorProps {
   code: string;
   onCodeChange: (code: string) => void;
   analysisLines: LineAnalysis[];
+  language: Language;
 }
 
-const CodeEditor: React.FC<CodeEditorProps> = ({ code, onCodeChange, analysisLines }) => {
+const CodeEditor: React.FC<CodeEditorProps> = ({ code, onCodeChange, analysisLines, language }) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const preRef = useRef<HTMLPreElement | null>(null);
   const lineNumbersRef = useRef<HTMLDivElement | null>(null);
   
   const [activeLine, setActiveLine] = useState<number | null>(null);
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({ display: 'none' });
+  const [highlightedCode, setHighlightedCode] = useState('');
 
   const lines = code.split('\n');
   const lineCount = lines.length > 0 ? lines.length : 1;
@@ -21,7 +33,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ code, onCodeChange, analysisLin
     const map = new Map<number, string>();
     if (analysisLines) {
       analysisLines.forEach(line => {
-        // Only create entries for lines with meaningful analysis to show in a tooltip
         if (line.analysis && !['Declaration', 'Comment', 'Empty line'].includes(line.analysis)) {
             map.set(line.lineNumber, line.analysis);
         }
@@ -29,6 +40,52 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ code, onCodeChange, analysisLin
     }
     return map;
   }, [analysisLines]);
+
+  useEffect(() => {
+    const highlight = async () => {
+      if (typeof window === 'undefined' || !window.Prism) {
+        console.error("Prism.js is not available on the window object.");
+        setHighlightedCode(code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+        return;
+      }
+      
+      try {
+        let langId: string;
+        switch (language) {
+          case 'python':
+            await import('prismjs/components/prism-python');
+            langId = 'python';
+            break;
+          case 'java':
+            await import('prismjs/components/prism-java');
+            langId = 'java';
+            break;
+          case 'cpp':
+            await import('prismjs/components/prism-clike');
+            await import('prismjs/components/prism-cpp');
+            langId = 'cpp';
+            break;
+          default:
+            langId = 'none';
+        }
+
+        if (window.Prism.languages[langId]) {
+          const html = window.Prism.highlight(code, window.Prism.languages[langId], langId);
+          setHighlightedCode(html);
+        } else {
+          if (langId !== 'none') {
+            console.warn(`Prism grammar for '${langId}' not found after dynamic import.`);
+          }
+          setHighlightedCode(code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+        }
+      } catch (error) {
+        console.error("Failed to highlight code:", error);
+        setHighlightedCode(code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+      }
+    };
+    highlight();
+  }, [code, language]);
+
 
   const handleLineClick = (lineNumber: number) => {
     if (analysisMap.has(lineNumber)) {
@@ -49,7 +106,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ code, onCodeChange, analysisLin
     
     const top = (activeLine - 1) * lineHeight + paddingTop - scrollTop;
 
-    // Hide tooltip if it's scrolled out of the visible area of the line numbers
     if (top < paddingTop || top > lineNumbersRef.current.clientHeight - lineHeight) {
         setActiveLine(null);
         return;
@@ -58,7 +114,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ code, onCodeChange, analysisLin
     setTooltipStyle({
         position: 'absolute',
         top: `${top}px`,
-        left: `${lineNumbersRef.current.offsetWidth - 5}px`, // Position next to line numbers
+        left: `${lineNumbersRef.current.offsetWidth - 5}px`,
         transform: 'translateY(calc(-25% + 4px))',
         zIndex: 20,
         display: 'block'
@@ -67,14 +123,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ code, onCodeChange, analysisLin
   
   useEffect(() => {
     updateTooltipPosition();
-  }, [activeLine, code, analysisLines]); // Recalculate when context changes
+  }, [activeLine, code, analysisLines]);
 
   const syncScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
     const target = e.currentTarget;
     if (lineNumbersRef.current) {
       lineNumbersRef.current.scrollTop = target.scrollTop;
     }
-    // Update position while scrolling
+    if (preRef.current) {
+      preRef.current.scrollTop = target.scrollTop;
+      preRef.current.scrollLeft = target.scrollLeft;
+    }
     if (activeLine) {
         updateTooltipPosition();
     }
@@ -99,7 +158,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ code, onCodeChange, analysisLin
     >
       <div
         ref={lineNumbersRef}
-        className="text-right text-gray-500 py-4 pl-4 pr-2 select-none overflow-y-hidden"
+        className="text-right text-gray-500 py-4 pl-4 pr-2 select-none overflow-y-hidden shrink-0"
+        style={{
+          lineHeight: 'var(--line-height, 1.5)'
+        }}
         aria-hidden="true"
       >
         {Array.from({ length: lineCount }, (_, i) => {
@@ -126,16 +188,21 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ code, onCodeChange, analysisLin
             onScroll={syncScroll}
             onClick={handleEditorInteraction}
             onFocus={handleEditorInteraction}
-            className="absolute inset-0 p-4 bg-transparent text-gray-200 resize-none focus:outline-none w-full h-full"
-            style={{
-              fontFamily: 'var(--font-family, monospace)',
-              tabSize: 4,
-              MozTabSize: 4,
-            }}
+            className="absolute inset-0 resize-none focus:outline-none w-full h-full overflow-auto code-editor-sync code-editor-textarea"
             autoCapitalize="off"
             autoComplete="off"
             autoCorrect="off"
         />
+        <pre 
+            ref={preRef}
+            aria-hidden="true" 
+            className="absolute inset-0 w-full h-full overflow-auto pointer-events-none code-editor-sync"
+        >
+            <code 
+                className={`language-${language}`}
+                dangerouslySetInnerHTML={{ __html: highlightedCode }} 
+            />
+        </pre>
       </div>
 
       {activeAnalysis && (

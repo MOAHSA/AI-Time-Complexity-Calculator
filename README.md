@@ -5,6 +5,7 @@ This is an intelligent code editor built with React and powered by the Google Ge
 ## Features
 
 -   **On-Demand Analysis**: Get complexity analysis for your code with the click of a button.
+-   **AI-Powered Optimization**: Click the lightbulb icon (💡) to get suggestions from the AI on how to optimize your code for better time complexity.
 -   **Multi-Language Support**: Full support for analyzing Python, Java, and C++ code.
 -   **Detailed Breakdown**: In addition to the overall Big O notation, click on a line number to see its specific execution count formula in a convenient popover.
 -   **Customizable Editor**: Adjust the editor's font family, font size, and line height to match your preferences.
@@ -18,4 +19,7 @@ This is an intelligent code editor built with React and powered by the Google Ge
 4.  **View Results**:
     -   The overall **Big O notation** will appear in the status bar at the bottom.
     -   **Click on a line number** to view a pop-up with the detailed execution count for that specific line.
-5.  **Customize (Optional)**: Open the settings panel to change the editor's appearance.
+5.  **Get Optimization Suggestions**:
+    -   Click the **lightbulb icon** (💡) in the header.
+    -   A pop-up will appear with the AI's suggestions. If an improvement is found, you can easily copy the new code.
+6.  **Customize (Optional)**: Open the settings panel to change the editor's appearance.

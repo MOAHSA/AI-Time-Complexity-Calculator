@@ -1,7 +1,7 @@
 
 
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Language, AnalysisResult } from '../types';
+import type { Language, AnalysisResult, OptimizationResult } from '../types';
 
 const API_KEY = process.env.API_KEY;
 
@@ -15,7 +15,7 @@ if (!API_KEY) {
 // The fallback to an empty string prevents a crash if the key is missing, although API calls will fail.
 const ai = new GoogleGenAI({ apiKey: API_KEY || "" });
 
-const responseSchema = {
+const analysisResponseSchema = {
   type: Type.OBJECT,
   properties: {
     bigO: {
@@ -108,7 +108,7 @@ export const analyzeCodeComplexity = async (code: string, language: Language): P
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: responseSchema,
+        responseSchema: analysisResponseSchema,
         temperature: 0.0,
       },
     });
@@ -116,7 +116,6 @@ export const analyzeCodeComplexity = async (code: string, language: Language): P
     const jsonText = response.text.trim();
     const result = JSON.parse(jsonText);
     
-    // Ensure the result conforms to the AnalysisResult type
     if (result && typeof result.bigO === 'string' && Array.isArray(result.lines)) {
       return result as AnalysisResult;
     } else {
@@ -129,10 +128,114 @@ export const analyzeCodeComplexity = async (code: string, language: Language): P
     if (error instanceof Error) {
         errorMessage = `API Error: ${error.message}`;
     }
-    // Return a structured error response
     return {
       bigO: "Error",
       lines: [{ lineNumber: 1, analysis: errorMessage }],
     };
   }
+};
+
+const optimizationResponseSchema = {
+    type: Type.OBJECT,
+    properties: {
+        optimized: {
+            type: Type.BOOLEAN,
+            description: "True if the code could be optimized, false otherwise.",
+        },
+        suggestion: {
+            type: Type.STRING,
+            description: "If optimized, the new code block. If not, a message saying the code is already optimal. The code should be in a markdown block.",
+        },
+    },
+    required: ["optimized", "suggestion"],
+};
+
+
+export const getOptimizationSuggestion = async (code: string, language: Language): Promise<OptimizationResult> => {
+    const prompt = `
+    You are an expert programmer and algorithm designer. Your task is to analyze the given code for time complexity optimizations.
+
+    Analyze the following ${language} code:
+    \`\`\`${language}
+    ${code}
+    \`\`\`
+
+    **YOUR TASK:**
+    1.  Determine if the algorithm can be optimized to achieve a better time complexity (Big O).
+    2.  If it CAN be optimized, rewrite the code to be more efficient. Your response must include the improved code.
+    3.  If the code is ALREADY well-optimized and cannot be reasonably improved, state that.
+    
+    **CRITICAL INSTRUCTIONS:**
+    *   Your response MUST be a single, valid JSON object that adheres to the provided schema.
+    *   Do NOT include any explanatory text, markdown formatting, or anything outside of the JSON object.
+    *   If you provide optimized code in the 'suggestion' field, it MUST be enclosed in a markdown code block (e.g., \`\`\`${language}\\n...\\n\`\`\`).
+
+    **Example (Optimized):**
+    Input Code (calculates sum with O(n^2) complexity):
+    \`\`\`python
+    def calculate_sum(n):
+        total = 0
+        for i in range(n):
+            for j in range(i):
+                total += 1
+        return total
+    \`\`\`
+    Your JSON Response:
+    \`\`\`json
+    {
+        "optimized": true,
+        "suggestion": "The original nested loop has O(n^2) complexity. This can be solved with a mathematical formula in O(1) time.\\n\\n\`\`\`python\\ndef calculate_sum(n):\\n    if n <= 0:\\n        return 0\\n    return n * (n - 1) // 2\\n\`\`\`"
+    }
+    \`\`\`
+
+    **Example (Already Optimized):**
+    Input Code (O(n)):
+    \`\`\`python
+    def find_max(arr):
+        max_val = arr[0]
+        for val in arr:
+            if val > max_val:
+                max_val = val
+        return max_val
+    \`\`\`
+    Your JSON Response:
+    \`\`\`json
+    {
+        "optimized": false,
+        "suggestion": "Your code is already well-optimized. Finding the maximum value in an unsorted array requires at least a single pass, resulting in an optimal time complexity of O(n)."
+    }
+    \`\`\`
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: optimizationResponseSchema,
+                temperature: 0.1,
+            },
+        });
+
+        const jsonText = response.text.trim();
+        const result = JSON.parse(jsonText);
+        
+        if (result && typeof result.optimized === 'boolean' && typeof result.suggestion === 'string') {
+            return result as OptimizationResult;
+        } else {
+            throw new Error("Invalid JSON structure received from API for optimization.");
+        }
+
+    } catch (error) {
+        console.error("Error getting optimization suggestion:", error);
+        let errorMessage = "Failed to get suggestion. Please check the console for details.";
+        if (error instanceof Error) {
+            errorMessage = `API Error: ${error.message}`;
+        }
+        return {
+            optimized: false,
+            suggestion: errorMessage,
+        };
+    }
 };

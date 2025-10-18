@@ -5,22 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Time Complexity Calculator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/themes/prism-tomorrow.min.css" integrity="sha512-vswe+cgvic/XBoF1OcM/TeJ2FW0OofqAVdCZiEYkd6dwGXthvkSFWOoGGJgS2CWZ08OjdDjZwrO7YXdWE8rM/w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
-      /* Prevents a flash of a white screen before the app loads */
       body {
-        background-color: #111827; /* Corresponds to Tailwind's bg-gray-900 */
+        background-color: #111827; /* Tailwind's bg-gray-900 */
+      }
+      /* Syncs the textarea and the highlighting pre block */
+      .code-editor-sync {
+        margin: 0;
+        padding: 1rem; /* p-4 */
+        border: 0;
+        font-family: var(--font-family, monospace);
+        font-size: var(--font-size, 16px);
+        line-height: var(--line-height, 1.5);
+        tab-size: 4;
+        -moz-tab-size: 4;
+        white-space: pre;
+        word-wrap: normal;
+      }
+      /* Makes the textarea transparent with a visible cursor */
+      .code-editor-textarea {
+        color: transparent;
+        background: transparent;
+        caret-color: white;
       }
     </style>
     <script type="importmap">
-    {
-      "imports": {
-        "react": "https://aistudiocdn.com/react@^19.2.0",
-        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-        "react/": "https://aistudiocdn.com/react@^19.2.0/",
-        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0"
-      }
-    }
-    </script>
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0",
+    "prismjs": "https://aistudiocdn.com/prismjs@^1.30.0",
+    "prismjs/": "https://aistudiocdn.com/prismjs@^1.30.0/"
+  }
+}
+</script>
 </head>
 <body class="bg-gray-900">
     <div id="root"></div>

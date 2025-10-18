@@ -8,4 +8,9 @@ export interface AnalysisResult {
   lines: LineAnalysis[];
 }
 
+export interface OptimizationResult {
+  optimized: boolean;
+  suggestion: string;
+}
+
 export type Language = 'python' | 'java' | 'cpp';
