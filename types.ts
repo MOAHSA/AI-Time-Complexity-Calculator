@@ -13,4 +13,5 @@ export interface OptimizationResult {
   suggestion: string;
 }
 
-export type Language = 'python' | 'java' | 'cpp';
+export type ConcreteLanguage = 'python' | 'java' | 'cpp';
+export type Language = 'auto' | ConcreteLanguage;

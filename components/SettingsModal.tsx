@@ -15,6 +15,7 @@ interface SettingsModalProps {
 }
 
 const languageOptions: { id: Language; name: string }[] = [
+  { id: 'auto', name: 'Auto' },
   { id: 'python', name: 'Python' },
   { id: 'java', name: 'Java' },
   { id: 'cpp', name: 'C++' },
@@ -64,7 +65,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="p-6 space-y-6">
           <div>
             <h3 className="text-sm font-medium text-gray-300 mb-2">Language</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {languageOptions.map((lang) => (
                 <button
                   key={lang.id}

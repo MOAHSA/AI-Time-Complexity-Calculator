@@ -1,7 +1,7 @@
 
 
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Language, AnalysisResult, OptimizationResult } from '../types';
+import type { Language, AnalysisResult, OptimizationResult, ConcreteLanguage } from '../types';
 
 const API_KEY = process.env.API_KEY;
 
@@ -43,7 +43,42 @@ const analysisResponseSchema = {
   required: ["bigO", "lines"],
 };
 
-export const analyzeCodeComplexity = async (code: string, language: Language): Promise<AnalysisResult> => {
+export const detectLanguage = async (code: string): Promise<ConcreteLanguage | null> => {
+    if (!code.trim()) {
+        return null;
+    }
+    const prompt = `
+    Detect the programming language of the following code snippet.
+    Your response MUST be a single word, chosen from: "python", "java", "cpp".
+    Do not provide any explanation or other text.
+
+    Code snippet:
+    \`\`\`
+    ${code}
+    \`\`\`
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                temperature: 0.0,
+            },
+        });
+        const detected = response.text.trim().toLowerCase();
+        if (detected === 'python' || detected === 'java' || detected === 'cpp') {
+            return detected as ConcreteLanguage;
+        }
+        console.warn(`Language detection returned an unexpected value: ${detected}`);
+        return null; // Fallback for unexpected responses
+    } catch (error) {
+        console.error("Error detecting language:", error);
+        return null;
+    }
+}
+
+export const analyzeCodeComplexity = async (code: string, language: ConcreteLanguage): Promise<AnalysisResult> => {
   if (!code.trim()) {
     return { bigO: 'O(1)', lines: [] };
   }
@@ -151,7 +186,7 @@ const optimizationResponseSchema = {
 };
 
 
-export const getOptimizationSuggestion = async (code: string, language: Language): Promise<OptimizationResult> => {
+export const getOptimizationSuggestion = async (code: string, language: ConcreteLanguage): Promise<OptimizationResult> => {
     const prompt = `
     You are an expert programmer and algorithm designer. Your task is to analyze the given code for time complexity optimizations.
 

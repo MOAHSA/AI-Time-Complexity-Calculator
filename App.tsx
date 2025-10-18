@@ -3,11 +3,12 @@ import CodeEditor from './components/CodeEditor';
 import StatusBar from './components/StatusBar';
 import SettingsModal from './components/SettingsModal';
 import OptimizationModal from './components/OptimizationModal';
-import { analyzeCodeComplexity, getOptimizationSuggestion } from './services/geminiService';
-import type { Language, AnalysisResult, OptimizationResult } from './types';
+import { analyzeCodeComplexity, getOptimizationSuggestion, detectLanguage } from './services/geminiService';
+import type { Language, AnalysisResult, OptimizationResult, ConcreteLanguage } from './types';
 
 const App = () => {
-  const [language, setLanguage] = useState<Language>('python');
+  const [language, setLanguage] = useState<Language>('auto');
+  const [activeLanguage, setActiveLanguage] = useState<ConcreteLanguage>('python');
   const [code, setCode] = useState('');
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -27,9 +28,24 @@ const App = () => {
       return;
     }
     setIsLoading(true);
-    const result = await analyzeCodeComplexity(code, language);
-    setAnalysis(result);
-    setIsLoading(false);
+    setAnalysis(null);
+
+    try {
+      const langToAnalyze = language === 'auto' ? (await detectLanguage(code)) : language;
+
+      if (!langToAnalyze) {
+        throw new Error("Could not detect language. Please select a language manually.");
+      }
+      setActiveLanguage(langToAnalyze);
+
+      const result = await analyzeCodeComplexity(code, langToAnalyze);
+      setAnalysis(result);
+    } catch(e) {
+      const error = e as Error;
+      setAnalysis({ bigO: "Error", lines: [{ lineNumber: 1, analysis: `Analysis failed: ${error.message}` }] });
+    } finally {
+      setIsLoading(false);
+    }
   }, [code, language]);
 
   const handleSuggestOptimization = useCallback(async () => {
@@ -37,9 +53,23 @@ const App = () => {
     setIsLoading(true);
     setIsOptimizationOpen(true);
     setOptimizationResult(null); // Clear previous results
-    const result = await getOptimizationSuggestion(code, language);
-    setOptimizationResult(result);
-    setIsLoading(false);
+
+    try {
+      const langToAnalyze = language === 'auto' ? (await detectLanguage(code)) : language;
+
+      if (!langToAnalyze) {
+        throw new Error("Could not detect language. Please select a language manually.");
+      }
+       setActiveLanguage(langToAnalyze);
+
+      const result = await getOptimizationSuggestion(code, langToAnalyze);
+      setOptimizationResult(result);
+    } catch(e) {
+      const error = e as Error;
+       setOptimizationResult({ optimized: false, suggestion: `Optimization failed: ${error.message}` });
+    } finally {
+      setIsLoading(false);
+    }
   }, [code, language]);
   
   const handleCodeChange = (newCode: string) => {
@@ -51,8 +81,13 @@ const App = () => {
     setIsSettingsOpen(false); // Close modal on selection
   };
   
-  // Example of pre-filling code for demonstration
   useEffect(() => {
+    if (language === 'auto') {
+      setCode('');
+      setAnalysis(null);
+      return;
+    }
+
     const exampleCode = {
       python: `def inefficient_sum(n):
     # This function calculates the sum of numbers from 0 to n-1
@@ -89,6 +124,7 @@ const App = () => {
 `
     };
     setCode(exampleCode[language]);
+    setActiveLanguage(language);
     setAnalysis(null); // Clear previous analysis on language change
   }, [language]);
 
@@ -147,7 +183,7 @@ const App = () => {
           code={code} 
           onCodeChange={handleCodeChange}
           analysisLines={analysis?.lines || []}
-          language={language}
+          language={activeLanguage}
         />
       </main>
 
@@ -155,6 +191,7 @@ const App = () => {
         bigO={analysis?.bigO || null}
         isLoading={isLoading && !isOptimizationOpen}
         language={language}
+        activeLanguage={activeLanguage}
       />
 
       {isSettingsOpen && (
