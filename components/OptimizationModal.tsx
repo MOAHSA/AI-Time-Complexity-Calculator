@@ -12,7 +12,7 @@ import rehypeKatex from 'rehype-katex';
 interface OptimizationModalProps {
   item: OptimizationHistoryItem;
   onClose: () => void;
-  onContinueChat: (message: string, depth: 'short' | 'deep') => void;
+  onContinueChat: (message: string, depth: 'short' | 'deep' | 'page') => void;
 }
 
 const ResourceLink: React.FC<{ resource: OptimizationResource }> = ({ resource }) => {
@@ -49,15 +49,34 @@ const LoadingBubble: React.FC = () => (
     </div>
 );
 
-const ChatBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
+const ChatBubble: React.FC<{ message: ChatMessage; isFullScreen: boolean }> = ({ message, isFullScreen }) => {
     if (message.role === 'loading') {
         return <LoadingBubble />;
     }
 
     const isUser = message.role === 'user';
+
+    if (message.format === 'html') {
+        const widthClass = isFullScreen ? 'max-w-full' : 'max-w-4xl';
+        return (
+            <div className="flex w-full justify-start">
+                <div className={`w-full ${widthClass}`}>
+                    <iframe
+                        srcDoc={message.content}
+                        title="AI Generated Page"
+                        className="w-full h-[75vh] border border-[var(--border-secondary)] rounded-lg bg-white"
+                        sandbox="allow-scripts allow-same-origin"
+                    />
+                </div>
+            </div>
+        );
+    }
+    
+    const widthClass = isFullScreen ? 'max-w-3xl lg:max-w-4xl' : 'max-w-xl lg:max-w-2xl';
+    
     return (
         <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-xl lg:max-w-2xl px-4 py-2 rounded-lg prose prose-invert prose-sm overflow-x-auto ${isUser ? 'bg-[var(--bg-interactive)] text-[var(--text-on-interactive)]' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'}`}>
+            <div className={`prose prose-invert prose-sm overflow-x-auto ${widthClass} px-4 py-2 rounded-lg ${isUser ? 'bg-[var(--bg-interactive)] text-[var(--text-on-interactive)]' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'}`}>
                 <ReactMarkdown
                     remarkPlugins={[remarkGfm, remarkMath]}
                     rehypePlugins={[rehypeRaw, rehypeKatex]}
@@ -123,7 +142,7 @@ const ChatBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
 const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, onContinueChat }) => {
   const [chatInput, setChatInput] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [answerDepth, setAnswerDepth] = useState<'short' | 'deep'>('deep');
+  const [answerDepth, setAnswerDepth] = useState<'short' | 'deep' | 'page'>('deep');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -202,7 +221,7 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
           </div>
         </div>
 
-        <div className="flex-grow overflow-y-auto p-6 space-y-6">
+        <div className={`flex-grow overflow-y-auto p-6 space-y-6 ${isFullScreen ? 'mx-auto w-full max-w-6xl' : ''}`}>
             <div className="prose prose-invert max-w-none text-[var(--text-secondary)] overflow-x-auto">
                 <ReactMarkdown
                     remarkPlugins={[remarkGfm, remarkMath]}
@@ -274,14 +293,14 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
             {(item.chatHistory.length > 0) && <div className="border-t border-[var(--border-primary)]/50 pt-4"></div>}
 
             <div className="space-y-4">
-                {item.chatHistory.map((msg, index) => <ChatBubble key={index} message={msg} />)}
+                {item.chatHistory.map((msg, index) => <ChatBubble key={index} message={msg} isFullScreen={isFullScreen} />)}
                  <div ref={chatEndRef} />
             </div>
 
         </div>
 
         <div className="p-4 border-t border-[var(--border-primary)] flex-shrink-0">
-          <div className={`mx-auto transition-all duration-300 ${isFullScreen ? 'max-w-4xl' : 'max-w-full'}`}>
+          <div className={`mx-auto transition-all duration-300 ${isFullScreen ? 'max-w-6xl' : 'max-w-full'}`}>
             <form onSubmit={handleChatSubmit} className="flex space-x-2">
               <input
                 type="text"
@@ -299,7 +318,7 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
                   aria-haspopup="true"
                   aria-expanded={isDropdownOpen}
                 >
-                  <span>{answerDepth === 'deep' ? 'Deep' : 'Short'} Answer</span>
+                  <span>{answerDepth === 'deep' ? 'Deep' : answerDepth === 'short' ? 'Short' : 'Page'} Answer</span>
                   <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -308,6 +327,7 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
                   <div className="absolute bottom-full mb-2 w-full bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-md shadow-lg z-10">
                     <button type="button" onClick={() => { setAnswerDepth('deep'); setIsDropdownOpen(false); }} className="block w-full text-left px-4 py-2 text-[var(--text-secondary)] hover:bg-[var(--bg-quaternary)]">Deep Answer</button>
                     <button type="button" onClick={() => { setAnswerDepth('short'); setIsDropdownOpen(false); }} className="block w-full text-left px-4 py-2 text-[var(--text-secondary)] hover:bg-[var(--bg-quaternary)]">Short Answer</button>
+                    <button type="button" onClick={() => { setAnswerDepth('page'); setIsDropdownOpen(false); }} className="block w-full text-left px-4 py-2 text-[var(--text-secondary)] hover:bg-[var(--bg-quaternary)]">Page Answer</button>
                   </div>
                 )}
               </div>

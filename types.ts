@@ -26,6 +26,7 @@ export type Language = 'auto' | ConcreteLanguage;
 export interface ChatMessage {
   role: 'user' | 'model' | 'loading';
   content: string;
+  format?: 'markdown' | 'html';
 }
 
 export interface OptimizationHistoryItem {

@@ -91,6 +91,11 @@ const App: React.FC = () => {
     });
     const [activeHistoryItem, setActiveHistoryItem] = useState<OptimizationHistoryItem | null>(null);
 
+    // Apply theme to the root element
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+    }, [theme]);
+
     // Save settings to localStorage
     useEffect(() => {
         localStorage.setItem('editorTheme', theme);
@@ -189,11 +194,11 @@ const App: React.FC = () => {
         }
     }, [code, detectedLanguage, language]);
     
-    const handleContinueChat = async (message: string, depth: 'short' | 'deep') => {
+    const handleContinueChat = async (message: string, depth: 'short' | 'deep' | 'page') => {
         if (!activeHistoryItem) return;
 
-        const userMessage: ChatMessage = { role: 'user', content: message };
-        const loadingMessage: ChatMessage = { role: 'loading', content: '...' };
+        const userMessage: ChatMessage = { role: 'user', content: message, format: 'markdown' };
+        const loadingMessage: ChatMessage = { role: 'loading', content: '...', format: 'markdown' };
 
         const updatedHistoryWithUserAndLoading: OptimizationHistoryItem = {
             ...activeHistoryItem,
@@ -211,7 +216,12 @@ const App: React.FC = () => {
                 answerDepth: depth,
             });
             
-            const modelMessage: ChatMessage = { role: 'model', content: response };
+            const modelMessage: ChatMessage = {
+                role: 'model',
+                content: response,
+                format: depth === 'page' ? 'html' : 'markdown',
+            };
+            
             const finalHistoryItem: OptimizationHistoryItem = {
                 ...activeHistoryItem,
                 chatHistory: [...activeHistoryItem.chatHistory, userMessage, modelMessage]
@@ -221,7 +231,7 @@ const App: React.FC = () => {
 
         } catch (e) {
             const errorMsg = e instanceof Error ? e.message : 'An unknown error occurred during chat.';
-            const errorMessage: ChatMessage = { role: 'model', content: `Error: ${errorMsg}`};
+            const errorMessage: ChatMessage = { role: 'model', content: `Error: ${errorMsg}`, format: 'markdown' };
             const finalHistoryItem: OptimizationHistoryItem = {
                 ...activeHistoryItem,
                 chatHistory: [...activeHistoryItem.chatHistory, userMessage, errorMessage]
@@ -245,7 +255,7 @@ const App: React.FC = () => {
     };
     
     return (
-        <div className="flex flex-col h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans" data-theme={theme}>
+        <div className="flex flex-col h-screen font-sans">
             <main className="flex-grow flex flex-row overflow-hidden">
                 <CodeEditor
                     code={code}
