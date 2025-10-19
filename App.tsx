@@ -189,7 +189,7 @@ const App: React.FC = () => {
         }
     }, [code, detectedLanguage, language]);
     
-    const handleContinueChat = async (message: string) => {
+    const handleContinueChat = async (message: string, depth: 'short' | 'deep') => {
         if (!activeHistoryItem) return;
 
         const userMessage: ChatMessage = { role: 'user', content: message };
@@ -208,6 +208,7 @@ const App: React.FC = () => {
                 optimizationSuggestion: activeHistoryItem.result.suggestion,
                 history: [...activeHistoryItem.chatHistory, userMessage], // Send history including the new user message
                 newUserMessage: message,
+                answerDepth: depth,
             });
             
             const modelMessage: ChatMessage = { role: 'model', content: response };

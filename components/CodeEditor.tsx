@@ -4,7 +4,9 @@ import CodeMirror from '@uiw/react-codemirror';
 import { Extension } from '@codemirror/state';
 import { EditorView, Decoration, DecorationSet, ViewPlugin, ViewUpdate } from '@codemirror/view';
 import { python } from '@codemirror/lang-python';
-import { java from } from '@codemirror/lang-java';
+// FIX: The `java` export from `@codemirror/lang-java` conflicts with the reserved keyword `java`.
+// It's aliased to `javaLang` to avoid this conflict.
+import { java as javaLang } from '@codemirror/lang-java';
 import { cpp } from '@codemirror/lang-cpp';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { solarizedLight } from '@uiw/codemirror-theme-solarized';
@@ -88,7 +90,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const languageExtension = useMemo(() => {
     switch (language) {
       case 'python': return [python()];
-      case 'java': return [java()];
+      // FIX: Use the aliased `javaLang` import.
+      case 'java': return [javaLang()];
       case 'cpp': return [cpp()];
       default: return [];
     }

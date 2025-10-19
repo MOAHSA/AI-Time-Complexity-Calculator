@@ -1,10 +1,25 @@
 
-
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
 
 interface HelpTourProps {
   onClose: () => void;
 }
+
+const helpContent = `
+This is an AI-powered tool to help you understand code complexity.
+
+*   **Code Editor:** Write or paste your code in the main editor area. After running an analysis, **click on any line number** to see its specific execution count.
+*   **Analyze Button:** Click this to start the time complexity analysis. The overall complexity (e.g., $O(n^2)$) will appear in the status bar at the bottom.
+*   **Optimize Button:** After analyzing, click this to get AI-powered suggestions for improving your code's efficiency.
+*   **Settings (Gear Icon):** Change the language detection mode, editor appearance, and application theme.
+
+Get started by pasting some code and hitting "Analyze"!
+`;
 
 const HelpTour: React.FC<HelpTourProps> = ({ onClose }) => {
   return (
@@ -30,15 +45,13 @@ const HelpTour: React.FC<HelpTourProps> = ({ onClose }) => {
             </svg>
           </button>
         </div>
-        <div className="p-6 text-[var(--text-secondary)] space-y-4">
-          <p>This is an AI-powered tool to help you understand code complexity.</p>
-          <ul className="list-disc list-inside space-y-2">
-            <li><strong>Code Editor:</strong> Write or paste your code in the main editor area. After running an analysis, **click on any line number** to see its specific execution count.</li>
-            <li><strong>Analyze Button:</strong> Click this to start the time complexity analysis. The overall Big O will appear in the status bar at the bottom.</li>
-            <li><strong>Optimize Button:</strong> After analyzing, click this to get AI-powered suggestions for improving your code's efficiency.</li>
-            <li><strong>Settings (Gear Icon):</strong> Change the language detection mode, editor appearance, and application theme.</li>
-          </ul>
-          <p>Get started by pasting some code and hitting "Analyze"!</p>
+        <div className="p-6 prose prose-invert max-w-none text-[var(--text-secondary)]">
+          <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeRaw, rehypeKatex]}
+          >
+              {helpContent}
+          </ReactMarkdown>
         </div>
          <div className="p-4 bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] flex justify-end">
             <button

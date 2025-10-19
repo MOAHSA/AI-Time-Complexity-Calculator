@@ -187,6 +187,7 @@ interface ContinueChatParams {
   optimizationSuggestion: string;
   history: ChatMessage[];
   newUserMessage: string;
+  answerDepth: 'short' | 'deep';
 }
 
 export const continueChat = async ({
@@ -194,11 +195,45 @@ export const continueChat = async ({
     language,
     optimizationSuggestion,
     history,
-    newUserMessage
+    newUserMessage,
+    answerDepth,
 }: ContinueChatParams): Promise<string> => {
     const model = 'gemini-2.5-pro';
 
-    const prompt = `You are an expert AI computer scientist and tutor. Your task is to provide detailed, well-structured, and easy-to-render responses formatted in Markdown, based on the user's question about a code optimization suggestion.
+    const depthInstructions = answerDepth === 'deep' 
+? `### YOUR TASK
+Act as an expert AI computer scientist and a patient tutor. Answer the user's new question based on the full context provided. Your response must be a **DEEP and DETAILED** explanation, formatted in Markdown, adhering strictly to the professional standards below.
+
+### RESPONSE REQUIREMENTS (DEEP, TUTORIAL-STYLE ANSWER)
+
+#### 1. Foundational Concepts First
+- **Start with the 'Why':** Before giving the answer, briefly explain the core concept the user's question touches upon. For example, if they ask about recursion, start with a simple definition of recursion.
+- **Define Terms:** Explicitly define all key terms (e.g., "$F_n$ is the n-th Fibonacci number," "$\\phi$ is the golden ratio").
+
+#### 2. Clear and Structured Formatting
+- **Sections:** Organize your answer into clear sections using Markdown headings (e.g., \`## Understanding Memoization\`, \`## Step-by-Step Implementation\`).
+- **Code Blocks:** Enclose all code snippets in fenced code blocks (\`\`\`) with language specification. Add concise, meaningful comments inside the code to explain key steps.
+- **Mathematical Notation:** Use LaTeX syntax for mathematical expressions, enclosed in dollar signs (e.g., \`$O(n \\log n)\` for inline, \`$$F_n = ...$$\` for block).
+- **Visual Aids:** Use tables for comparisons and Mermaid syntax for diagrams (\`\`\`mermaid) when it aids understanding.
+
+#### 3. Content and Precision
+- **Address Limitations:** Discuss potential issues like floating-point precision errors (e.g., "IEEE 754 gives exact results for Fibonacci numbers up to F(71)") and suggest robust alternatives (e.g., "for higher precision, use Python's \`decimal\` library").
+- **Trade-offs:** If relevant, explain trade-offs between different approaches (e.g., time vs. space complexity).
+
+#### 4. Conclude and Summarize
+- **Summary:** End with a strong summary. Use bullet points for pros and cons to provide clear takeaways.
+- **Encourage Learning:** Maintain a professional, educational, and encouraging tone.`
+: `### YOUR TASK
+Answer the user's new question based on the full context provided. Your response should be a **SHORT and CONCISE** summary.
+
+### RESPONSE REQUIREMENTS (SHORT ANSWER)
+- **Be Direct:** Get straight to the point. Answer the question directly without extensive background.
+- **Use Bullet Points:** Prefer bullet points or numbered lists for brevity.
+- **Code Snippets:** If code is needed, provide only the essential snippet.
+- **Avoid Jargon:** Use simple language.
+- **Length:** Aim for a response that is a few sentences to a short paragraph long. Do not use complex formatting like tables or diagrams.`;
+
+    const prompt = `You are an expert AI computer scientist and tutor. Your task is to provide a response formatted in Markdown, based on the user's question about a code optimization suggestion.
 
 ### CONTEXT
 The user is asking a follow-up question about a code optimization suggestion.
@@ -216,28 +251,7 @@ ${history.map(msg => `${msg.role === 'user' ? 'User' : 'AI'}: ${msg.content}`).j
 ### USER'S NEW QUESTION
 ${newUserMessage}
 
-### YOUR TASK
-Answer the user's new question based on the full context provided, adhering strictly to the following professional standards and formatting requirements.
-
-### RESPONSE REQUIREMENTS
-
-#### 1. Formatting and Clarity
-- **Sections:** Organize your answer into clear sections using Markdown headings (e.g., \`## Binet’s Formula\`, \`## Python Implementation\`).
-- **Readability:** Break long paragraphs into shorter, more digestible ones.
-- **Code Blocks:** Enclose all code snippets in fenced code blocks (\`\`\`) and specify the programming language.
-- **Mathematical Notation:** Use LaTeX syntax for mathematical expressions, enclosed in dollar signs (e.g., \`$O(n \\log n)\` for inline, \`$$F_n = ...$$\` for block).
-- **Tables:** If comparing concepts, provide data in a well-formatted Markdown table with a clear header row.
-- **Diagrams:** When helpful, include flowcharts or diagrams using Mermaid syntax inside a \`\`\`mermaid fenced code block.
-
-#### 2. Content and Precision
-- **Define Terms:** Explicitly define key terms (e.g., "$F_n$ is the n-th Fibonacci number," "$\\phi$ is the golden ratio").
-- **Code Comments:** Add concise, meaningful comments inside code blocks to explain key steps.
-- **Numerical Stability:** Precisely address limitations, such as floating-point precision errors (e.g., "IEEE 754 double precision gives exact integer results for Fibonacci numbers up to F(71)").
-- **Alternatives:** When discussing limitations, suggest robust alternatives (e.g., "for higher precision, use Python's \`decimal\` library").
-
-#### 3. Structure and Tone
-- **Conclusion:** End with a strong summary. Use bullet points for pros and cons to provide clear takeaways.
-- **Style:** Maintain a professional, educational tone. Use active voice where possible.
+${depthInstructions}
 
 Please produce a response following this structure so my application can automatically parse and display it effectively.`;
 

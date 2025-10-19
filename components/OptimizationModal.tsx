@@ -12,7 +12,7 @@ import rehypeKatex from 'rehype-katex';
 interface OptimizationModalProps {
   item: OptimizationHistoryItem;
   onClose: () => void;
-  onContinueChat: (message: string) => void;
+  onContinueChat: (message: string, depth: 'short' | 'deep') => void;
 }
 
 const ResourceLink: React.FC<{ resource: OptimizationResource }> = ({ resource }) => {
@@ -62,7 +62,9 @@ const ChatBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
                     remarkPlugins={[remarkGfm, remarkMath]}
                     rehypePlugins={[rehypeRaw, rehypeKatex]}
                     components={{
-                        code({ node, inline, className, children, ...props }) {
+                        // FIX: The props for the custom `code` component renderer are typed as `any`
+                        // to resolve a type mismatch error with `inline` property from `react-markdown`.
+                        code({ node, inline, className, children, ...props }: any) {
                             const [isCopied, setIsCopied] = useState(false);
                             const match = /language-(\w+)/.exec(className || '');
 
@@ -92,7 +94,9 @@ const ChatBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
                                         )}
                                     </button>
                                     <SyntaxHighlighter
-                                        style={vscDarkPlus}
+                                        // FIX: Cast `vscDarkPlus` style to `any` to resolve a type incompatibility
+                                        // with the `style` prop of `react-syntax-highlighter`.
+                                        style={vscDarkPlus as any}
                                         language={match[1]}
                                         PreTag="div"
                                         {...props}
@@ -119,7 +123,10 @@ const ChatBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
 const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, onContinueChat }) => {
   const [chatInput, setChatInput] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [answerDepth, setAnswerDepth] = useState<'short' | 'deep'>('deep');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -129,10 +136,22 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
     scrollToBottom();
   }, [item.chatHistory]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+            setIsDropdownOpen(false);
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (chatInput.trim()) {
-        onContinueChat(chatInput.trim());
+        onContinueChat(chatInput.trim(), answerDepth);
         setChatInput('');
     }
   };
@@ -189,7 +208,9 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
                     remarkPlugins={[remarkGfm, remarkMath]}
                     rehypePlugins={[rehypeRaw, rehypeKatex]}
                     components={{
-                        code({ node, inline, className, children, ...props }) {
+                        // FIX: The props for the custom `code` component renderer are typed as `any`
+                        // to resolve a type mismatch error with `inline` property from `react-markdown`.
+                        code({ node, inline, className, children, ...props }: any) {
                              const [isCopied, setIsCopied] = useState(false);
                             const match = /language-(\w+)/.exec(className || '');
 
@@ -219,7 +240,9 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
                                         )}
                                     </button>
                                     <SyntaxHighlighter
-                                        style={vscDarkPlus}
+                                        // FIX: Cast `vscDarkPlus` style to `any` to resolve a type incompatibility
+                                        // with the `style` prop of `react-syntax-highlighter`.
+                                        style={vscDarkPlus as any}
                                         language={match[1]}
                                         PreTag="div"
                                         {...props}
@@ -268,6 +291,26 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
                 className="flex-grow bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-md p-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--ring-color)] focus:border-[var(--ring-color)]"
                 aria-label="Chat input"
               />
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen(p => !p)}
+                  className="bg-[var(--bg-tertiary)] hover:bg-[var(--bg-quaternary)] text-[var(--text-secondary)] font-semibold py-2 px-4 rounded-md transition-colors flex items-center space-x-2"
+                  aria-haspopup="true"
+                  aria-expanded={isDropdownOpen}
+                >
+                  <span>{answerDepth === 'deep' ? 'Deep' : 'Short'} Answer</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {isDropdownOpen && (
+                  <div className="absolute bottom-full mb-2 w-full bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-md shadow-lg z-10">
+                    <button type="button" onClick={() => { setAnswerDepth('deep'); setIsDropdownOpen(false); }} className="block w-full text-left px-4 py-2 text-[var(--text-secondary)] hover:bg-[var(--bg-quaternary)]">Deep Answer</button>
+                    <button type="button" onClick={() => { setAnswerDepth('short'); setIsDropdownOpen(false); }} className="block w-full text-left px-4 py-2 text-[var(--text-secondary)] hover:bg-[var(--bg-quaternary)]">Short Answer</button>
+                  </div>
+                )}
+              </div>
               <button
                 type="submit"
                 className="bg-[var(--bg-interactive)] hover:bg-[var(--bg-interactive-hover)] disabled:bg-[var(--bg-interactive-disabled)] text-[var(--text-on-interactive)] font-semibold py-2 px-4 rounded-md transition-colors"
