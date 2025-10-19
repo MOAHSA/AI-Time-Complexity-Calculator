@@ -67,12 +67,16 @@ export const analyzeCode = async (code: string, language: ConcreteLanguage): Pro
                             type: Type.INTEGER,
                             description: 'The 1-based line number in the code.'
                         },
+                        executionCount: {
+                            type: Type.STRING,
+                            description: 'A concise representation of how many times this line executes, using Big O notation variables (e.g., "1", "n", "n/2", "log n", "n^2").'
+                        },
                         analysis: {
                             type: Type.STRING,
-                            description: 'A brief explanation of how this line contributes to the overall time complexity, including execution count if applicable.'
+                            description: 'A brief explanation of how this line contributes to the overall time complexity, elaborating on the execution count.'
                         }
                     },
-                    required: ['lineNumber', 'analysis']
+                    required: ['lineNumber', 'executionCount', 'analysis']
                 }
             }
         },
@@ -84,7 +88,10 @@ Analyze the time complexity of the following ${language} code.
 
 Provide the following:
 1.  The overall time complexity in Big O notation.
-2.  A line-by-line analysis for the most significant lines of code that contribute to this complexity. For each of these lines, provide the line number and a brief explanation of its contribution (e.g., "This loop runs n times").
+2.  A line-by-line analysis for the most significant lines of code that contribute to this complexity. For each of these lines, provide:
+    a. The line number.
+    b. A concise "executionCount" (e.g., "n", "1", "n^2").
+    c. A brief "analysis" explaining its contribution.
 
 Your response must be in JSON format matching the provided schema.
 

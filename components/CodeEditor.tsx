@@ -19,6 +19,7 @@ interface CodeEditorProps {
   code: string;
   onCodeChange: (newCode: string) => void;
   analysisLines: LineAnalysis[];
+  hasAnalysisRun: boolean;
   language: ConcreteLanguage | null;
   fontFamily: string;
   fontSize: number;
@@ -66,6 +67,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   code,
   onCodeChange,
   analysisLines,
+  hasAnalysisRun,
   language,
   fontFamily,
   fontSize,
@@ -142,16 +144,22 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         if (gutterElement) {
             const lineNo = view.state.doc.lineAt(view.posAtDOM(target)).number;
             const analysis = analysisLines.find(l => l.lineNumber === lineNo);
-            if (analysis) {
-                const rect = gutterElement.getBoundingClientRect();
-                setTooltip({
-                    content: analysis.analysis,
-                    top: rect.top,
-                    left: rect.right + 10,
-                    line: lineNo,
-                    sticky: false,
-                });
+            const rect = gutterElement.getBoundingClientRect();
+            
+            let content: string;
+            if (!hasAnalysisRun) {
+                content = 'Analyze to see execution count';
+            } else {
+                content = analysis ? `Executes: ${analysis.executionCount}` : 'Not applicable';
             }
+
+            setTooltip({
+                content: content,
+                top: rect.top,
+                left: rect.right + 10,
+                line: lineNo,
+                sticky: false,
+            });
         }
     },
     mouseout: () => {
@@ -159,7 +167,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             setTooltip(null); // Hide hover tooltips
         }
     }
-  }), [analysisLines, tooltip]);
+  }), [analysisLines, tooltip, hasAnalysisRun]);
 
   const extensions = useMemo(() => {
     const exts: Extension[] = [

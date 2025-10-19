@@ -261,6 +261,7 @@ const App: React.FC = () => {
                     code={code}
                     onCodeChange={setCode}
                     analysisLines={analysisResult?.lines || []}
+                    hasAnalysisRun={analysisResult !== null}
                     language={detectedLanguage}
                     fontFamily={fontFamily}
                     fontSize={fontSize}

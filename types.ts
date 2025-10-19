@@ -1,5 +1,6 @@
 export interface LineAnalysis {
   lineNumber: number;
+  executionCount: string;
   analysis: string;
 }
 
