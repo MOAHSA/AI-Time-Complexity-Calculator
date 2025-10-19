@@ -222,8 +222,7 @@ Answer the user's new question based on the full context provided, adhering stri
 ### RESPONSE REQUIREMENTS
 
 #### 1. Formatting and Clarity
-- **Structure:** Start with a "### Short Answer" section that provides a concise, direct summary. Follow this with a "### Deep Answer" section for the full, detailed explanation including examples, tables, and diagrams.
-- **Sections:** Within the "Deep Answer", organize your content into clear sub-sections using Markdown headings (e.g., \`## Binet’s Formula\`, \`## Python Implementation\`).
+- **Sections:** Organize your answer into clear sections using Markdown headings (e.g., \`## Binet’s Formula\`, \`## Python Implementation\`).
 - **Readability:** Break long paragraphs into shorter, more digestible ones.
 - **Code Blocks:** Enclose all code snippets in fenced code blocks (\`\`\`) and specify the programming language.
 - **Mathematical Notation:** Use LaTeX syntax for mathematical expressions, enclosed in dollar signs (e.g., \`$O(n \\log n)\` for inline, \`$$F_n = ...$$\` for block).
@@ -237,9 +236,8 @@ Answer the user's new question based on the full context provided, adhering stri
 - **Alternatives:** When discussing limitations, suggest robust alternatives (e.g., "for higher precision, use Python's \`decimal\` library").
 
 #### 3. Structure and Tone
-- **Conclusion:** End the "Deep Answer" with a strong summary. Use bullet points for pros and cons to provide clear takeaways.
+- **Conclusion:** End with a strong summary. Use bullet points for pros and cons to provide clear takeaways.
 - **Style:** Maintain a professional, educational tone. Use active voice where possible.
-- **Follow-up:** After the main content, provide a "### Suggested Questions" section with 2-3 relevant follow-up questions the user might have.
 
 Please produce a response following this structure so my application can automatically parse and display it effectively.`;
 
