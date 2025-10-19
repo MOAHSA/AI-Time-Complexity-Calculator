@@ -115,6 +115,7 @@ const ChatBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
 
 const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, onContinueChat }) => {
   const [chatInput, setChatInput] = useState('');
+  const [isFullScreen, setIsFullScreen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -141,20 +142,42 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
       aria-modal="true"
     >
       <div
-        className="bg-[var(--bg-secondary)] rounded-lg shadow-xl w-full max-w-4xl m-4 flex flex-col h-[90vh]"
+        className={`bg-[var(--bg-secondary)] flex flex-col transition-all duration-300 ease-in-out
+          ${isFullScreen 
+            ? 'w-screen h-screen' 
+            : 'rounded-lg shadow-xl w-full max-w-4xl m-4 h-[90vh]'
+          }`
+        }
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
         <div className="p-6 border-b border-[var(--border-primary)] flex justify-between items-center flex-shrink-0">
           <h2 className="text-xl font-semibold text-[var(--text-primary)]">Optimization Suggestion</h2>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--bg-secondary)] focus:ring-[var(--ring-color)]"
-            aria-label="Close optimization details"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setIsFullScreen(p => !p)}
+              className="p-2 rounded-full text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--bg-secondary)] focus:ring-[var(--ring-color)]"
+              aria-label={isFullScreen ? "Exit fullscreen" : "Enter fullscreen"}
+            >
+              {isFullScreen ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 4H4v4m12 12h4v-4M8 20H4v-4m12-12h4V8" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4h4m12 4V4h-4M4 16v4h4m12-4v4h-4" />
+                </svg>
+              )}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--bg-secondary)] focus:ring-[var(--ring-color)]"
+              aria-label="Close optimization details"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="flex-grow overflow-y-auto p-6 space-y-6">
