@@ -34,6 +34,7 @@ const App: React.FC = () => {
   const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('fontSize')) || 16);
   const [lineHeight, setLineHeight] = useState(() => Number(localStorage.getItem('lineHeight')) || 1.6);
   const [hasSeenHelp, setHasSeenHelp] = useState(() => localStorage.getItem('hasSeenHelp') === 'true');
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'modern');
 
   // Session State
   const [code, setCode] = useState<string>(defaultCode);
@@ -50,6 +51,10 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('fontSize', String(fontSize)); }, [fontSize]);
   useEffect(() => { localStorage.setItem('lineHeight', String(lineHeight)); }, [lineHeight]);
   useEffect(() => { if (hasSeenHelp) localStorage.setItem('hasSeenHelp', 'true'); }, [hasSeenHelp]);
+  useEffect(() => { 
+    localStorage.setItem('theme', theme);
+    document.documentElement.className = `theme-${theme}`;
+  }, [theme]);
 
   const handleAnalysis = useCallback(async () => {
     setIsLoading(true);
@@ -97,7 +102,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="bg-gray-900 text-gray-200 flex flex-col h-screen font-sans">
+    <div className="bg-[var(--bg-primary)] text-[var(--text-primary)] flex flex-col h-screen font-sans">
       <main className="flex-grow flex items-stretch">
         <CodeEditor 
           code={code}
@@ -124,6 +129,8 @@ const App: React.FC = () => {
         <SettingsModal
           currentLanguage={language}
           onLanguageChange={setLanguage}
+          currentTheme={theme}
+          onThemeChange={setTheme}
           fontFamily={fontFamily}
           onFontFamilyChange={setFontFamily}
           fontSize={fontSize}
