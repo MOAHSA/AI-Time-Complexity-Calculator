@@ -1,132 +1,201 @@
-
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import CodeEditor from './components/CodeEditor';
 import StatusBar from './components/StatusBar';
 import SettingsModal from './components/SettingsModal';
 import OptimizationModal from './components/OptimizationModal';
+import HistorySidebar from './components/HistorySidebar';
 import HelpTour from './components/HelpTour';
-import { analyzeCodeComplexity, getOptimizationSuggestion, detectLanguage } from './services/geminiService';
-import type { Language, ConcreteLanguage, AnalysisResult, OptimizationResult } from './types';
+import { analyzeCode, optimizeCode, getLanguage, continueChat } from './services/geminiService';
+import type { OptimizationResult, Language, ConcreteLanguage, LineAnalysis, OptimizationHistoryItem } from './types';
 
-const defaultCode = `// Welcome to the AI-Powered Code Complexity Analyzer!
-// 1. Paste your code here.
-// 2. Click "Analyze" to see the Big O and line-by-line complexity.
-// 3. Click "Optimize" for AI-powered suggestions.
+const defaultCode = `def find_sum(numbers):
+    total = 0
+    for number in numbers:
+        total += number
+    return total
 
-function exampleSort(arr) {
-  const n = arr.length;
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n - i - 1; j++) {
-      if (arr[j] > arr[j + 1]) {
-        // Swap elements
-        const temp = arr[j];
-        arr[j] = arr[j + 1];
-        arr[j + 1] = temp;
-      }
-    }
-  }
-  return arr;
-}`;
+# Example usage:
+my_list = [1, 2, 3, 4, 5]
+print(find_sum(my_list))`;
 
-const App: React.FC = () => {
-  // Persisted State
-  const [fontFamily, setFontFamily] = useState(() => localStorage.getItem('fontFamily') || `'Fira Code', monospace`);
-  const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('fontSize')) || 16);
-  const [lineHeight, setLineHeight] = useState(() => Number(localStorage.getItem('lineHeight')) || 1.6);
-  const [hasSeenHelp, setHasSeenHelp] = useState(() => localStorage.getItem('hasSeenHelp') === 'true');
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'modern');
-
-  // Session State
-  const [code, setCode] = useState<string>(defaultCode);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
-  const [language, setLanguage] = useState<Language>('auto');
+function App() {
+  const [code, setCode] = useState<string>(() => localStorage.getItem('code') || defaultCode);
+  const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('language') as Language) || 'auto');
   const [detectedLanguage, setDetectedLanguage] = useState<ConcreteLanguage | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isSettingsModalOpen, setSettingsModalOpen] = useState<boolean>(false);
-  const [isOptimizationModalOpen, setOptimizationModalOpen] = useState<boolean>(false);
-  const [isHelpTourOpen, setHelpTourOpen] = useState<boolean>(!hasSeenHelp);
+  
+  const [bigO, setBigO] = useState<string | null>(null);
+  const [analysisLines, setAnalysisLines] = useState<LineAnalysis[]>([]);
+  
+  const [optimizationHistory, setOptimizationHistory] = useState<OptimizationHistoryItem[]>(() => JSON.parse(localStorage.getItem('optimizationHistory') || '[]'));
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
 
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isChatLoading, setIsChatLoading] = useState<boolean>(false);
+  
+  // Modal states
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isOptimizationOpen, setIsOptimizationOpen] = useState<boolean>(false);
+  const [isHelpOpen, setIsHelpOpen] = useState<boolean>(() => !localStorage.getItem('hasSeenHelp'));
+  const [isHistoryVisible, setIsHistoryVisible] = useState<boolean>(false);
+
+  // Editor settings
+  const [theme, setTheme] = useState<string>(() => localStorage.getItem('theme') || 'modern');
+  const [fontFamily, setFontFamily] = useState<string>(() => localStorage.getItem('fontFamily') || `'Fira Code', monospace`);
+  const [fontSize, setFontSize] = useState<number>(() => Number(localStorage.getItem('fontSize')) || 16);
+  const [lineHeight, setLineHeight] = useState<number>(() => Number(localStorage.getItem('lineHeight')) || 1.6);
+  
+  // Save settings to localStorage
+  useEffect(() => { localStorage.setItem('code', code); }, [code]);
+  useEffect(() => { localStorage.setItem('language', language); }, [language]);
+  useEffect(() => {
+    document.documentElement.className = `theme-${theme}`;
+    localStorage.setItem('theme', theme);
+  }, [theme]);
   useEffect(() => { localStorage.setItem('fontFamily', fontFamily); }, [fontFamily]);
   useEffect(() => { localStorage.setItem('fontSize', String(fontSize)); }, [fontSize]);
   useEffect(() => { localStorage.setItem('lineHeight', String(lineHeight)); }, [lineHeight]);
-  useEffect(() => { if (hasSeenHelp) localStorage.setItem('hasSeenHelp', 'true'); }, [hasSeenHelp]);
-  useEffect(() => { 
-    localStorage.setItem('theme', theme);
-    document.documentElement.className = `theme-${theme}`;
-  }, [theme]);
+  useEffect(() => { localStorage.setItem('optimizationHistory', JSON.stringify(optimizationHistory)); }, [optimizationHistory]);
 
-  const handleAnalysis = useCallback(async () => {
+  const handleCodeChange = (newCode: string) => {
+    setCode(newCode);
+    setBigO(null);
+    setAnalysisLines([]);
+  };
+  
+  const handleAnalyze = async () => {
+    if (isLoading || !code.trim()) return;
     setIsLoading(true);
-    setAnalysisResult(null);
+    setBigO(null);
+    setAnalysisLines([]);
 
-    let langToUse: ConcreteLanguage | null = detectedLanguage;
+    try {
+      const lang = await getLanguage(code, language);
+      setDetectedLanguage(lang);
+      const result = await analyzeCode(code, lang);
+      setBigO(result.bigO);
+      setAnalysisLines(result.lines);
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      setBigO('Error: Analysis failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    if (language === 'auto') {
-      const detected = await detectLanguage(code);
-      if (!detected) {
-        setAnalysisResult({ bigO: "Error", lines: [{lineNumber: 1, analysis: "Could not detect language. Please select one in Settings."}] });
-        setIsLoading(false);
+  const handleOptimize = async () => {
+    if (isLoading || !code.trim()) return;
+    setIsLoading(true);
+
+    try {
+      const lang = detectedLanguage || (await getLanguage(code, language));
+      if (!detectedLanguage) setDetectedLanguage(lang);
+      
+      const result: OptimizationResult = await optimizeCode(code, lang);
+      
+      const newHistoryItem: OptimizationHistoryItem = {
+        id: `opt-${Date.now()}`,
+        timestamp: Date.now(),
+        originalCode: code,
+        language: lang,
+        result,
+        chatHistory: [],
+      };
+
+      setOptimizationHistory(prev => [newHistoryItem, ...prev]);
+      setActiveHistoryId(newHistoryItem.id);
+      setIsOptimizationOpen(true);
+    } catch (error) {
+      console.error('Optimization failed:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendMessage = async (message: string) => {
+    if (!activeHistoryId || isChatLoading) return;
+    setIsChatLoading(true);
+
+    const currentItemIndex = optimizationHistory.findIndex(item => item.id === activeHistoryId);
+    if (currentItemIndex === -1) {
+        setIsChatLoading(false);
         return;
-      }
-      setDetectedLanguage(detected);
-      langToUse = detected;
-    } else {
-        langToUse = language;
-        setDetectedLanguage(language);
     }
+    const currentItem = optimizationHistory[currentItemIndex];
+    const updatedChatHistory = [...currentItem.chatHistory, { role: 'user' as const, content: message }];
     
-    if (langToUse) {
-        const result = await analyzeCodeComplexity(code, langToUse);
-        setAnalysisResult(result);
-    }
+    // Optimistically update UI with user message
+    const updatedHistory = optimizationHistory.map(item => item.id === activeHistoryId ? {...item, chatHistory: updatedChatHistory} : item);
+    setOptimizationHistory(updatedHistory);
     
-    setIsLoading(false);
-  }, [code, language, detectedLanguage]);
+    try {
+      const modelResponse = await continueChat({
+          originalCode: currentItem.originalCode,
+          language: currentItem.language,
+          optimizationSuggestion: currentItem.result.suggestion,
+          history: currentItem.chatHistory, // send history *before* user message
+          newUserMessage: message,
+      });
 
-  const handleOptimization = useCallback(async () => {
-    if (!detectedLanguage) {
-      alert("Please analyze the code first to detect the language.");
-      return;
+      const finalChatHistory = [...updatedChatHistory, { role: 'model' as const, content: modelResponse }];
+      const finalHistory = optimizationHistory.map(item => item.id === activeHistoryId ? {...item, chatHistory: finalChatHistory} : item);
+      setOptimizationHistory(finalHistory);
+    } catch (error) {
+      console.error("Chat error:", error);
+      const errorHistory = [...updatedChatHistory, { role: 'model' as const, content: 'Sorry, I encountered an error. Please try again.' }];
+      const errorFinalHistory = optimizationHistory.map(item => item.id === activeHistoryId ? {...item, chatHistory: errorHistory} : item);
+      setOptimizationHistory(errorFinalHistory);
+    } finally {
+      setIsChatLoading(false);
     }
-    setIsLoading(true);
-    const result = await getOptimizationSuggestion(code, detectedLanguage);
-    setOptimizationResult(result);
-    setOptimizationModalOpen(true);
-    setIsLoading(false);
-  }, [code, detectedLanguage]);
+  };
 
-  const closeHelpTour = () => {
-    setHelpTourOpen(false);
-    setHasSeenHelp(true);
+  const handleSelectHistoryItem = (id: string) => {
+    setActiveHistoryId(id);
+    setIsOptimizationOpen(true);
+    setIsHistoryVisible(false);
+  };
+
+  const closeHelp = () => {
+    setIsHelpOpen(false);
+    localStorage.setItem('hasSeenHelp', 'true');
   }
 
+  const activeOptimization = optimizationHistory.find(item => item.id === activeHistoryId) || null;
+
   return (
-    <div className="bg-[var(--bg-primary)] text-[var(--text-primary)] flex flex-col h-screen font-sans">
-      <main className="flex-grow flex items-stretch">
-        <CodeEditor 
-          code={code}
-          onCodeChange={setCode}
-          analysisLines={analysisResult?.lines ?? []}
-          fontFamily={fontFamily}
-          fontSize={fontSize}
-          lineHeight={lineHeight}
+    <div className="flex h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden">
+      <div className="flex-grow flex flex-col h-full">
+        <main className="flex-grow flex flex-col">
+          <CodeEditor 
+            code={code}
+            onCodeChange={handleCodeChange}
+            analysisLines={analysisLines}
+            language={detectedLanguage}
+            fontFamily={fontFamily}
+            fontSize={fontSize}
+            lineHeight={lineHeight}
+          />
+        </main>
+        <StatusBar 
+          language={language}
+          detectedLanguage={detectedLanguage}
+          bigO={bigO}
+          isLoading={isLoading}
+          onAnalyze={handleAnalyze}
+          onOptimize={handleOptimize}
+          onSettings={() => setIsSettingsOpen(true)}
+          onHelp={() => setIsHelpOpen(true)}
+          onToggleHistory={() => setIsHistoryVisible(v => !v)}
         />
-      </main>
-
-      <StatusBar
-        language={language}
-        detectedLanguage={detectedLanguage}
-        bigO={analysisResult?.bigO ?? null}
-        isLoading={isLoading}
-        onAnalyze={handleAnalysis}
-        onOptimize={handleOptimization}
-        onSettings={() => setSettingsModalOpen(true)}
-        onHelp={() => setHelpTourOpen(true)}
+      </div>
+      <HistorySidebar 
+          isVisible={isHistoryVisible}
+          history={optimizationHistory}
+          onSelect={handleSelectHistoryItem}
+          onClose={() => setIsHistoryVisible(false)}
       />
-
-      {isSettingsModalOpen && (
-        <SettingsModal
+      {isSettingsOpen && (
+        <SettingsModal 
           currentLanguage={language}
           onLanguageChange={setLanguage}
           currentTheme={theme}
@@ -137,22 +206,20 @@ const App: React.FC = () => {
           onFontSizeChange={setFontSize}
           lineHeight={lineHeight}
           onLineHeightChange={setLineHeight}
-          onClose={() => setSettingsModalOpen(false)}
+          onClose={() => setIsSettingsOpen(false)}
         />
       )}
-
-      {isOptimizationModalOpen && (
-          <OptimizationModal
-              result={optimizationResult}
-              onClose={() => setOptimizationModalOpen(false)}
-          />
+      {isOptimizationOpen && activeOptimization && (
+        <OptimizationModal 
+          historyItem={activeOptimization}
+          onSendMessage={handleSendMessage}
+          isChatLoading={isChatLoading}
+          onClose={() => setIsOptimizationOpen(false)}
+        />
       )}
-
-      {isHelpTourOpen && (
-          <HelpTour onClose={closeHelpTour} />
-      )}
+      {isHelpOpen && <HelpTour onClose={closeHelp} />}
     </div>
   );
-};
+}
 
 export default App;

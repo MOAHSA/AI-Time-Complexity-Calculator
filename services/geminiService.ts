@@ -1,276 +1,236 @@
+import { GoogleGenAI, Type, GenerateContentResponse } from '@google/genai';
+import type { AnalysisResult, OptimizationResult, ConcreteLanguage, Language, ChatMessage } from '../types';
 
+// Per guidelines, API key is from environment variable
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Fix: Use a recommended model for complex text tasks.
+const model = 'gemini-2.5-pro'; // Good for code analysis
 
-import { GoogleGenAI, Type } from "@google/genai";
-import type { Language, AnalysisResult, OptimizationResult, ConcreteLanguage } from '../types';
-
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  // This is a placeholder for environments where the key is not set.
-  // In the target runtime, process.env.API_KEY is expected to be available.
-  console.warn("API_KEY is not set. Using a placeholder.");
-}
-
-// FIX: Per coding guidelines, initialize GoogleGenAI with a named `apiKey` parameter.
-// The fallback to an empty string prevents a crash if the key is missing, although API calls will fail.
-const ai = new GoogleGenAI({ apiKey: API_KEY || "" });
-
-const analysisResponseSchema = {
+const analysisSchema = {
   type: Type.OBJECT,
   properties: {
     bigO: {
       type: Type.STRING,
-      description: "The overall time complexity in Big O notation, e.g., O(n^2).",
+      description: 'The calculated Big O time complexity of the code. E.g., O(n), O(n^2), O(log n). If an error occurs or complexity cannot be determined, provide a brief error message starting with "Error:".',
     },
     lines: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
-          lineNumber: {
-            type: Type.INTEGER,
-            description: "The 1-based line number corresponding to the original code.",
-          },
-          analysis: {
-            type: Type.STRING,
-            description: "A formula or description of how many times this line executes.",
-          },
+          lineNumber: { type: Type.INTEGER, description: 'The 1-based line number in the code.' },
+          analysis: { type: Type.STRING, description: 'A brief explanation of what this line does and its contribution to the overall complexity. Mention execution count if relevant. Keep it concise.' },
         },
-        required: ["lineNumber", "analysis"],
+        required: ['lineNumber', 'analysis'],
       },
     },
   },
-  required: ["bigO", "lines"],
+  required: ['bigO', 'lines'],
 };
 
-export const detectLanguage = async (code: string): Promise<ConcreteLanguage | null> => {
-    if (!code.trim()) {
-        return null;
-    }
-    const prompt = `
-    Detect the programming language of the following code snippet.
-    Your response MUST be a single word, chosen from: "python", "java", "cpp".
-    Do not provide any explanation or other text.
-
-    Code snippet:
-    \`\`\`
-    ${code}
-    \`\`\`
-    `;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                temperature: 0.0,
-            },
-        });
-        const detected = response.text.trim().toLowerCase();
-        if (detected === 'python' || detected === 'java' || detected === 'cpp') {
-            return detected as ConcreteLanguage;
-        }
-        console.warn(`Language detection returned an unexpected value: ${detected}`);
-        return null; // Fallback for unexpected responses
-    } catch (error) {
-        console.error("Error detecting language:", error);
-        return null;
-    }
-}
-
-export const analyzeCodeComplexity = async (code: string, language: ConcreteLanguage): Promise<AnalysisResult> => {
-  if (!code.trim()) {
-    return { bigO: 'O(1)', lines: [] };
-  }
-
-  const prompt = `
-    You are a world-class algorithm analyst and computer science professor. Your task is to perform a rigorous time complexity analysis of the provided code snippet. Your analysis must be extremely accurate and detailed.
-
-    Analyze the following ${language} code:
-    \`\`\`${language}
-    ${code}
-    \`\`\`
-
-    **CRITICAL INSTRUCTIONS:**
-    1.  Your response MUST be a single, valid JSON object that adheres to the provided schema.
-    2.  Do NOT include any explanatory text, markdown formatting, or anything outside of the JSON object.
-
-    **ANALYSIS GUIDELINES:**
-
-    **For the overall \`bigO\` complexity:**
-    *   Provide the **tightest possible worst-case** Big O notation.
-    *   Always simplify the final expression. For instance, O(n^2 + n) must be simplified to O(n^2).
-    *   Identify the key input variables that determine complexity (e.g., 'n', the length of an array) and express the complexity in terms of these variables.
-
-    **For the line-by-line \`lines\` analysis:**
-    *   Provide an entry for **every single line** of the input code, including comments and blank lines.
-    *   The \`analysis\` for each line must be a mathematical formula representing its execution count in terms of the input variables.
-    *   **Constant time operations** (assignments, arithmetic, single returns) have an execution count of '1'.
-    *   **Logarithmic loops** (e.g., \`i *= 2\`, \`n /= 2\`) should be identified and their execution count expressed as 'log(n)'.
-    *   **Recursive function calls** should be analyzed by stating the recurrence relation, e.g., 'T(n) = 2*T(n/2) + n'.
-    *   For lines **inside loops**, their total execution count is the count of the line's own operation multiplied by the number of times the loop(s) run.
-    *   For declarations, comments, or blank lines, use a descriptive string like 'Declaration', 'Comment', or 'Empty line'.
-
-    **EXAMPLE:**
-
-    If the input code is:
-    \`\`\`python
-    def example_function(n):
-        i = 1
-        while i < n: # Loop condition check
-            print(i)
-            i *= 2 # Key operation for complexity
-    \`\`\`
-
-    A perfect response would be:
-    \`\`\`json
-    {
-      "bigO": "O(log n)",
-      "lines": [
-        { "lineNumber": 1, "analysis": "Function declaration" },
-        { "lineNumber": 2, "analysis": "1" },
-        { "lineNumber": 3, "analysis": "log2(n) + 1" },
-        { "lineNumber": 4, "analysis": "log2(n)" },
-        { "lineNumber": 5, "analysis": "log2(n)" }
-      ]
-    }
-    \`\`\`
-  `;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: analysisResponseSchema,
-        temperature: 0.0,
-      },
-    });
-
-    const jsonText = response.text.trim();
-    const result = JSON.parse(jsonText);
-    
-    if (result && typeof result.bigO === 'string' && Array.isArray(result.lines)) {
-      return result as AnalysisResult;
-    } else {
-      throw new Error("Invalid JSON structure received from API.");
-    }
-
-  } catch (error) {
-    console.error("Error analyzing code complexity:", error);
-    let errorMessage = "Failed to analyze code. Please check the console for details.";
-    if (error instanceof Error) {
-        errorMessage = `API Error: ${error.message}`;
-    }
-    return {
-      bigO: "Error",
-      lines: [{ lineNumber: 1, analysis: errorMessage }],
-    };
-  }
-};
-
-const optimizationResponseSchema = {
+const optimizationSchema = {
     type: Type.OBJECT,
     properties: {
         optimized: {
             type: Type.BOOLEAN,
-            description: "True if the code could be optimized, false otherwise.",
+            description: 'A boolean indicating if the provided code is already considered optimal or if no significant optimization is possible.'
         },
         suggestion: {
             type: Type.STRING,
-            description: "If optimized, the new code block. If not, a message saying the code is already optimal. The code should be in a markdown block.",
+            description: "A detailed explanation of the optimization. If `optimized` is false, this should include the suggested improved code block inside markdown triple backticks (```) and an explanation of why it's more efficient. If `optimized` is true, this can be a brief confirmation."
         },
+        resources: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    title: { type: Type.STRING, description: 'A descriptive title for the resource link.' },
+                    url: { type: Type.STRING, description: 'A URL to a relevant article, documentation, or tutorial about the optimization technique or data structure.' },
+                    type: { type: Type.STRING, description: 'The type of the resource. Must be one of: "article", "video", "github", "documentation", or "other".' },
+                },
+                required: ['title', 'url', 'type']
+            },
+        }
     },
-    required: ["optimized", "suggestion"],
+    required: ['optimized', 'suggestion', 'resources']
 };
 
+const detectLanguagePrompt = `
+Analyze the following code snippet and identify its programming language.
+Respond with only one of the following options: "python", "java", or "cpp".
+Do not provide any other text or explanation.
 
-export const getOptimizationSuggestion = async (code: string, language: ConcreteLanguage): Promise<OptimizationResult> => {
-    const prompt = `
-    You are an expert programmer and algorithm designer. Your task is to analyze the given code for time complexity optimizations.
+Code:
+\`\`\`
+{CODE}
+\`\`\`
+`;
 
-    Analyze the following ${language} code:
-    \`\`\`${language}
-    ${code}
-    \`\`\`
+const analysisPrompt = `
+You are an expert in algorithm analysis. Analyze the time complexity of the following {LANGUAGE} code.
+Provide a detailed line-by-line analysis of the execution count and its contribution to the overall complexity.
+The line numbers in your response MUST correspond to the line numbers in the provided code.
 
-    **YOUR TASK:**
-    1.  Determine if the algorithm can be optimized to achieve a better time complexity (Big O).
-    2.  If it CAN be optimized, rewrite the code to be more efficient. Your response must include the improved code.
-    3.  If the code is ALREADY well-optimized and cannot be reasonably improved, state that.
-    
-    **CRITICAL INSTRUCTIONS:**
-    *   Your response MUST be a single, valid JSON object that adheres to the provided schema.
-    *   Do NOT include any explanatory text, markdown formatting, or anything outside of the JSON object.
-    *   If you provide optimized code in the 'suggestion' field, it MUST be enclosed in a markdown code block (e.g., \`\`\`${language}\\n...\\n\`\`\`).
+Code:
+\`\`\`{LANGUAGE}
+{CODE}
+\`\`\`
+`;
 
-    **Example (Optimized):**
-    Input Code (calculates sum with O(n^2) complexity):
-    \`\`\`python
-    def calculate_sum(n):
-        total = 0
-        for i in range(n):
-            for j in range(i):
-                total += 1
-        return total
-    \`\`\`
-    Your JSON Response:
-    \`\`\`json
-    {
-        "optimized": true,
-        "suggestion": "The original nested loop has O(n^2) complexity. This can be solved with a mathematical formula in O(1) time.\\n\\n\`\`\`python\\ndef calculate_sum(n):\\n    if n <= 0:\\n        return 0\\n    return n * (n - 1) // 2\\n\`\`\`"
-    }
-    \`\`\`
+const optimizationPrompt = `
+You are an expert software engineer and AI research assistant specializing in performance optimization and educational content curation.
 
-    **Example (Already Optimized):**
-    Input Code (O(n)):
-    \`\`\`python
-    def find_max(arr):
-        max_val = arr[0]
-        for val in arr:
-            if val > max_val:
-                max_val = val
-        return max_val
-    \`\`\`
-    Your JSON Response:
-    \`\`\`json
-    {
-        "optimized": false,
-        "suggestion": "Your code is already well-optimized. Finding the maximum value in an unsorted array requires at least a single pass, resulting in an optimal time complexity of O(n)."
-    }
-    \`\`\`
-    `;
+Task:
+1.  Analyze the provided {LANGUAGE} code for performance bottlenecks.
+2.  If it can be significantly optimized, provide an improved code version and a clear explanation of the changes.
+3.  If the code is already optimal, state that and explain why.
+4.  Concurrently, find up to 4 of the best, free online learning resources that explain the core concepts behind the optimization.
 
+Context:
+The user is a developer looking to understand *why* the optimized code is better, not just what the code is.
+The resources you find must be high-quality and directly related to the algorithmic or language-specific improvement.
+- For articles, prioritize well-respected blogs or educational platforms (e.g., GeeksforGeeks, freeCodeCamp).
+- For videos, prioritize tutorials from reputable YouTube channels (e.g., university lectures, well-known developer channels).
+- For GitHub, find well-documented example implementations, relevant libraries, or educational repositories.
+
+Constraints:
+- All resources must be freely accessible without a required sign-up or paywall.
+- The total number of resources should not exceed 4. Aim for a diverse mix (e.g., one article, one video, one GitHub link).
+- If no optimization is possible, the 'resources' array should be empty.
+
+Code to analyze:
+\`\`\`{LANGUAGE}
+{CODE}
+\`\`\`
+`;
+
+const chatPrompt = `
+You are an expert AI assistant continuing a conversation with a developer about code optimization.
+
+Here is the original context:
+- Language: {LANGUAGE}
+- Original Code:
+\`\`\`{LANGUAGE}
+{ORIGINAL_CODE}
+\`\`\`
+- Your Optimization Suggestion:
+{OPTIMIZATION_SUGGESTION}
+
+Here is the conversation history so far:
+{CHAT_HISTORY}
+
+The user's new message is: "{NEW_USER_MESSAGE}"
+
+Your task is to provide a helpful and concise response that directly addresses the user's new message, keeping the full context in mind. Do not repeat information unless asked.
+`;
+
+
+async function detectLanguage(code: string): Promise<ConcreteLanguage> {
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
+            model,
+            contents: detectLanguagePrompt.replace('{CODE}', code),
+        });
+        const lang = response.text.trim().toLowerCase();
+        if (lang === 'python' || lang === 'java' || lang === 'cpp') {
+            return lang as ConcreteLanguage;
+        }
+        // Fallback or error
+        console.warn("Could not reliably detect language, falling back to Python.");
+        return 'python';
+    } catch (error) {
+        console.error('Error detecting language:', error);
+        // Fallback
+        return 'python';
+    }
+}
+
+export async function getLanguage(code: string, language: Language): Promise<ConcreteLanguage> {
+    if (language === 'auto') {
+        return await detectLanguage(code);
+    }
+    return language;
+}
+
+
+export async function analyzeCode(code: string, language: ConcreteLanguage): Promise<AnalysisResult> {
+    try {
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model,
+            contents: analysisPrompt.replace('{LANGUAGE}', language).replace('{CODE}', code),
             config: {
-                responseMimeType: "application/json",
-                responseSchema: optimizationResponseSchema,
-                temperature: 0.1,
+                responseMimeType: 'application/json',
+                responseSchema: analysisSchema,
             },
         });
 
-        const jsonText = response.text.trim();
-        const result = JSON.parse(jsonText);
-        
-        if (result && typeof result.optimized === 'boolean' && typeof result.suggestion === 'string') {
-            return result as OptimizationResult;
-        } else {
-            throw new Error("Invalid JSON structure received from API for optimization.");
-        }
+        const jsonString = response.text;
+        const result: AnalysisResult = JSON.parse(jsonString);
+        return result;
 
     } catch (error) {
-        console.error("Error getting optimization suggestion:", error);
-        let errorMessage = "Failed to get suggestion. Please check the console for details.";
-        if (error instanceof Error) {
-            errorMessage = `API Error: ${error.message}`;
-        }
+        console.error("Error analyzing code:", error);
         return {
-            optimized: false,
-            suggestion: errorMessage,
+            bigO: 'Error: Analysis failed',
+            lines: []
         };
     }
-};
+}
+
+export async function optimizeCode(code: string, language: ConcreteLanguage): Promise<OptimizationResult> {
+    try {
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model,
+            contents: optimizationPrompt.replace('{LANGUAGE}', language).replace('{CODE}', code),
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: optimizationSchema,
+            },
+        });
+        
+        const jsonString = response.text;
+        const result: OptimizationResult = JSON.parse(jsonString);
+        return result;
+
+    } catch (error) {
+        console.error("Error optimizing code:", error);
+        return {
+            optimized: true, // assume no optimization possible on error
+            suggestion: 'An error occurred while trying to generate an optimization suggestion. Please try again.',
+            resources: []
+        };
+    }
+}
+
+export interface ChatContext {
+  originalCode: string;
+  language: ConcreteLanguage;
+  optimizationSuggestion: string;
+  history: ChatMessage[];
+  newUserMessage: string;
+}
+
+export async function continueChat(context: ChatContext): Promise<string> {
+    try {
+        const historyString = context.history
+            .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+            .join('\n');
+            
+        const prompt = chatPrompt
+            .replace('{LANGUAGE}', context.language)
+            .replace('{ORIGINAL_CODE}', context.originalCode)
+            .replace('{OPTIMIZATION_SUGGESTION}', context.optimizationSuggestion)
+            .replace('{CHAT_HISTORY}', historyString)
+            .replace('{NEW_USER_MESSAGE}', context.newUserMessage);
+
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+        });
+
+        return response.text;
+    } catch (error) {
+        console.error("Error in chat:", error);
+        return "I'm sorry, I encountered an error while processing your message. Please try again.";
+    }
+}

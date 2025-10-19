@@ -50,6 +50,35 @@
         background: transparent;
         caret-color: var(--caret-color);
       }
+
+      /* --- History Sidebar --- */
+      .history-sidebar {
+        transition: transform 0.3s ease-in-out;
+        transform: translateX(100%);
+      }
+      .history-sidebar.visible {
+        transform: translateX(0);
+      }
+
+      /* --- Chat Bubbles --- */
+      .chat-bubble {
+        padding: 0.75rem 1rem;
+        border-radius: 0.75rem;
+        max-width: 85%;
+        word-wrap: break-word;
+      }
+      .chat-bubble-user {
+        background-color: var(--bg-interactive);
+        color: var(--text-on-interactive);
+        border-bottom-right-radius: 0.125rem;
+        align-self: flex-end;
+      }
+      .chat-bubble-model {
+        background-color: var(--bg-tertiary);
+        color: var(--text-secondary);
+        border-bottom-left-radius: 0.125rem;
+        align-self: flex-start;
+      }
       
       /* --- Theme Definitions --- */
       :root, .theme-modern {
