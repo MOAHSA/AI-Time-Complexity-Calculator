@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { OptimizationHistoryItem, ChatMessage, OptimizationResource } from '../types';
+import type { OptimizationHistoryItem, ChatMessage, OptimizationResource, RecommendedQuestion } from '../types';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -55,18 +55,41 @@ const ChatBubble: React.FC<{ message: ChatMessage; isFullScreen: boolean }> = ({
     }
 
     const isUser = message.role === 'user';
+    
+    const handleDownloadHtml = () => {
+        const htmlContent = message.content;
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ai-generated-page.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
 
     if (message.format === 'html') {
         const widthClass = isFullScreen ? 'max-w-full' : 'max-w-4xl';
         return (
             <div className="flex w-full justify-start">
-                <div className={`w-full ${widthClass}`}>
+                <div className={`relative group w-full ${widthClass}`}>
                     <iframe
                         srcDoc={message.content}
                         title="AI Generated Page"
                         className="w-full h-[75vh] border border-[var(--border-secondary)] rounded-lg bg-white"
                         sandbox="allow-scripts allow-same-origin"
                     />
+                    <button
+                        onClick={handleDownloadHtml}
+                        className="absolute top-2 right-2 p-2 rounded-md bg-[var(--bg-secondary)]/50 hover:bg-[var(--bg-secondary)]/80 text-[var(--text-primary)] opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="Download HTML file"
+                        title="Download HTML file"
+                    >
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2m-4-5l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                    </button>
                 </div>
             </div>
         );
@@ -173,6 +196,10 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
         onContinueChat(chatInput.trim(), answerDepth);
         setChatInput('');
     }
+  };
+  
+  const handleRecommendedClick = (question: RecommendedQuestion) => {
+      onContinueChat(question.question, question.depth);
   };
 
   return (
@@ -301,6 +328,24 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
 
         <div className="p-4 border-t border-[var(--border-primary)] flex-shrink-0">
           <div className={`mx-auto transition-all duration-300 ${isFullScreen ? 'max-w-6xl' : 'max-w-full'}`}>
+            
+            {item.recommendedQuestions && item.recommendedQuestions.length > 0 && item.chatHistory.length === 0 && (
+              <div className="mb-3 space-y-2">
+                <h4 className="text-sm font-semibold text-[var(--text-tertiary)]">Recommended Questions</h4>
+                <div className="flex flex-wrap gap-2">
+                  {item.recommendedQuestions.map((rec, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleRecommendedClick(rec)}
+                      className="text-sm bg-[var(--bg-tertiary)] hover:bg-[var(--bg-quaternary)] text-[var(--text-secondary)] py-1 px-3 rounded-full transition-colors"
+                    >
+                      {rec.question}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <form onSubmit={handleChatSubmit} className="flex space-x-2">
               <input
                 type="text"

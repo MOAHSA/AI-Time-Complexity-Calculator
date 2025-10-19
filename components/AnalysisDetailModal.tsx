@@ -98,14 +98,24 @@ const AnalysisDetailModal: React.FC<AnalysisDetailModalProps> = ({ code, languag
             </button>
           </div>
         </div>
-        <div className="p-6 flex-grow overflow-auto analysis-code-view">
+        <div className="p-6 flex-grow overflow-auto">
           <SyntaxHighlighter
             language={language ? langAlias[language] : 'text'}
             style={vscDarkPlus as any}
             showLineNumbers
             wrapLines
             lineProps={getLineProps}
-            lineNumberStyle={{ minWidth: '3.5em', paddingRight: '1em', textAlign: 'right', color: 'var(--text-tertiary)', userSelect: 'none' }}
+            codeTagProps={{
+                className: 'analysis-code-view'
+            }}
+            lineNumberStyle={{
+                position: 'absolute',
+                left: '5rem', /* Second column for line number */
+                width: '2.5rem',
+                textAlign: 'right',
+                color: 'var(--text-tertiary)',
+                userSelect: 'none',
+            }}
           >
             {code}
           </SyntaxHighlighter>

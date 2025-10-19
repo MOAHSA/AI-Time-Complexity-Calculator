@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { OptimizationHistoryItem, AnalysisHistoryItem } from '../types';
 
 interface HistorySidebarProps {
   isVisible: boolean;
   optimizationHistory: OptimizationHistoryItem[];
   analysisHistory: AnalysisHistoryItem[];
+  initialTab: 'optimizations' | 'analyses';
   onSelectOptimization: (id: string) => void;
   onSelectAnalysis: (id: string) => void;
   onClose: () => void;
@@ -13,12 +14,19 @@ interface HistorySidebarProps {
 const HistorySidebar: React.FC<HistorySidebarProps> = ({ 
   isVisible, 
   optimizationHistory, 
-  analysisHistory, 
+  analysisHistory,
+  initialTab,
   onSelectOptimization, 
   onSelectAnalysis, 
   onClose 
 }) => {
-  const [activeTab, setActiveTab] = useState<'optimizations' | 'analyses'>('optimizations');
+  const [activeTab, setActiveTab] = useState<'optimizations' | 'analyses'>(initialTab);
+
+  useEffect(() => {
+    if (isVisible) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab, isVisible]);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString(undefined, {

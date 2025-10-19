@@ -7,13 +7,14 @@ import OptimizeOptionsModal from './components/OptimizeOptionsModal';
 import HelpTour from './components/HelpTour';
 import HistorySidebar from './components/HistorySidebar';
 import AnalysisDetailModal from './components/AnalysisDetailModal';
-import { analyzeCode, optimizeCode, getLanguage, continueChat } from './services/geminiService';
+import { analyzeCode, optimizeCode, getLanguage, continueChat, extractCodeFromImage } from './services/geminiService';
 import type {
   AnalysisHistoryItem,
   AnalysisResult,
   ChatMessage,
   ConcreteLanguage,
   Language,
+  ModelPreference,
   OptimizationHistoryItem,
   OptimizationResult,
 } from './types';
@@ -68,7 +69,9 @@ const App: React.FC = () => {
     const [language, setLanguage] = useState<Language>('auto');
     const [detectedLanguage, setDetectedLanguage] = useState<ConcreteLanguage | null>('python');
     const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+    const [isOptimizing, setIsOptimizing] = useState<boolean>(false);
+    const [isExtracting, setIsExtracting] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     
     // UI State
@@ -79,11 +82,13 @@ const App: React.FC = () => {
     const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
     const [isHistorySidebarOpen, setIsHistorySidebarOpen] = useState<boolean>(false);
     
-    // Editor Appearance State
+    // Settings State
     const [theme, setTheme] = useState<string>(() => localStorage.getItem('editorTheme') || 'modern');
     const [fontFamily, setFontFamily] = useState<string>(() => localStorage.getItem('editorFontFamily') || `'Fira Code', monospace`);
     const [fontSize, setFontSize] = useState<number>(() => parseInt(localStorage.getItem('editorFontSize') || '16', 10));
     const [lineHeight, setLineHeight] = useState<number>(() => parseFloat(localStorage.getItem('editorLineHeight') || '1.5'));
+    const [fontLigatures, setFontLigatures] = useState<boolean>(() => localStorage.getItem('fontLigatures') === 'true');
+    const [modelPreference, setModelPreference] = useState<ModelPreference>(() => (localStorage.getItem('modelPreference') as ModelPreference) || 'quality');
     
     // History State
     const [optimizationHistory, setOptimizationHistory] = useState<OptimizationHistoryItem[]>(() => {
@@ -104,6 +109,7 @@ const App: React.FC = () => {
     });
     const [activeHistoryItem, setActiveHistoryItem] = useState<OptimizationHistoryItem | null>(null);
     const [isOptimizingFromHistory, setIsOptimizingFromHistory] = useState<boolean>(false);
+    const [historyInitialTab, setHistoryInitialTab] = useState<'optimizations' | 'analyses'>('optimizations');
 
     // Apply theme to the root element
     useEffect(() => {
@@ -116,7 +122,9 @@ const App: React.FC = () => {
         localStorage.setItem('editorFontFamily', fontFamily);
         localStorage.setItem('editorFontSize', fontSize.toString());
         localStorage.setItem('editorLineHeight', lineHeight.toString());
-    }, [theme, fontFamily, fontSize, lineHeight]);
+        localStorage.setItem('fontLigatures', fontLigatures.toString());
+        localStorage.setItem('modelPreference', modelPreference);
+    }, [theme, fontFamily, fontSize, lineHeight, fontLigatures, modelPreference]);
     
     // Save history to localStorage
     useEffect(() => {
@@ -151,17 +159,16 @@ const App: React.FC = () => {
     };
     
     const handleAnalyze = useCallback(async () => {
-        setIsLoading(true);
+        setIsAnalyzing(true);
         setError(null);
         setAnalysisResult(null);
         
         try {
             const lang = await getLanguage(code, language);
             setDetectedLanguage(lang);
-            const result = await analyzeCode(code, lang);
+            const result = await analyzeCode(code, lang, modelPreference);
             setAnalysisResult(result);
 
-            // Save to analysis history
             const newAnalysisItem: AnalysisHistoryItem = {
                 id: `${Date.now()}-${Math.random()}`,
                 timestamp: Date.now(),
@@ -176,15 +183,15 @@ const App: React.FC = () => {
             setError(errorMsg);
             setAnalysisResult({ bigO: `Error: Analysis failed`, lines: [] });
         } finally {
-            setIsLoading(false);
+            setIsAnalyzing(false);
         }
-    }, [code, language]);
+    }, [code, language, modelPreference]);
     
     const performOptimization = useCallback(async (codeToUse: string, langToUse: ConcreteLanguage, analysisToUse?: AnalysisResult) => {
-        setIsLoading(true);
+        setIsOptimizing(true);
         setError(null);
         try {
-            const optimizationResult = await optimizeCode(codeToUse, langToUse, analysisToUse);
+            const optimizationResult = await optimizeCode(codeToUse, langToUse, modelPreference, analysisToUse);
             const newHistoryItem: OptimizationHistoryItem = {
                 id: `${Date.now()}-${Math.random()}`,
                 timestamp: Date.now(),
@@ -192,6 +199,7 @@ const App: React.FC = () => {
                 language: langToUse,
                 result: optimizationResult,
                 chatHistory: [],
+                recommendedQuestions: optimizationResult.recommendedQuestions,
             };
             setOptimizationHistory(prev => [newHistoryItem, ...prev.slice(0, 49)]);
             setActiveHistoryItem(newHistoryItem);
@@ -200,16 +208,18 @@ const App: React.FC = () => {
             const errorMsg = e instanceof Error ? e.message : 'An unknown error occurred.';
             setError(errorMsg);
             setAnalysisResult({ bigO: `Error: Failed`, lines: [] });
+            throw e; // Re-throw to be caught by the initiator
         } finally {
-            setIsLoading(false);
+            setIsOptimizing(false);
         }
-    }, []);
+    }, [modelPreference]);
     
     const handleInitiateOptimization = useCallback(async (strategy: 'analyze' | 'direct' | 'upload' | 'history') => {
         setIsOptimizeOptionsModalOpen(false);
 
         if (strategy === 'history') {
             setIsOptimizingFromHistory(true);
+            setHistoryInitialTab('analyses');
             setIsHistorySidebarOpen(true);
             return;
         }
@@ -231,12 +241,11 @@ const App: React.FC = () => {
             if (!file) return;
     
             codeToUse = await file.text();
-            handleCodeChange(codeToUse); // Use handler to set code and clear analysis
+            handleCodeChange(codeToUse); 
             analysisToUse = null;
-            langToUse = null; // Will need to be redetected
+            langToUse = null;
         }
 
-        setIsLoading(true);
         setError(null);
 
         try {
@@ -246,18 +255,23 @@ const App: React.FC = () => {
             }
             
             if (strategy === 'analyze' || strategy === 'upload') {
-                const result = await analyzeCode(codeToUse, langToUse);
-                setAnalysisResult(result);
-                analysisToUse = result;
+                setIsAnalyzing(true);
+                try {
+                    const result = await analyzeCode(codeToUse, langToUse, modelPreference);
+                    setAnalysisResult(result);
+                    analysisToUse = result;
     
-                const newAnalysisItem: AnalysisHistoryItem = {
-                    id: `${Date.now()}-${Math.random()}`,
-                    timestamp: Date.now(),
-                    originalCode: codeToUse,
-                    language: langToUse,
-                    result: result,
-                };
-                setAnalysisHistory(prev => [newAnalysisItem, ...prev.slice(0, 49)]);
+                    const newAnalysisItem: AnalysisHistoryItem = {
+                        id: `${Date.now()}-${Math.random()}`,
+                        timestamp: Date.now(),
+                        originalCode: codeToUse,
+                        language: langToUse,
+                        result: result,
+                    };
+                    setAnalysisHistory(prev => [newAnalysisItem, ...prev.slice(0, 49)]);
+                } finally {
+                    setIsAnalyzing(false);
+                }
             }
 
             await performOptimization(codeToUse, langToUse, analysisToUse ?? undefined);
@@ -266,10 +280,9 @@ const App: React.FC = () => {
             const errorMsg = e instanceof Error ? e.message : 'An unknown error occurred.';
             setError(errorMsg);
             setAnalysisResult({ bigO: `Error: Failed`, lines: [] });
-            setIsLoading(false);
         }
 
-    }, [code, language, detectedLanguage, analysisResult, performOptimization]);
+    }, [code, language, detectedLanguage, analysisResult, performOptimization, modelPreference]);
     
     const handleContinueChat = async (message: string, depth: 'short' | 'deep' | 'page') => {
         if (!activeHistoryItem) return;
@@ -288,9 +301,10 @@ const App: React.FC = () => {
                 originalCode: activeHistoryItem.originalCode,
                 language: activeHistoryItem.language,
                 optimizationSuggestion: activeHistoryItem.result.suggestion,
-                history: [...activeHistoryItem.chatHistory, userMessage], // Send history including the new user message
+                history: [...activeHistoryItem.chatHistory, userMessage],
                 newUserMessage: message,
                 answerDepth: depth,
+                modelPreference,
             });
             
             const modelMessage: ChatMessage = {
@@ -341,12 +355,122 @@ const App: React.FC = () => {
             setIsHistorySidebarOpen(false);
     
             if (isOptimizingFromHistory) {
-                setIsOptimizingFromHistory(false); // Reset the flag
+                setIsOptimizingFromHistory(false);
                 performOptimization(item.originalCode, item.language, item.result);
             } else {
                 setIsAnalysisDetailModalOpen(true);
             }
         }
+    };
+    
+    const handleSave = () => {
+        if (!code.trim()) return;
+
+        const lang = detectedLanguage || 'txt';
+        const extensionMap: { [key: string]: string } = { python: 'py', java: 'java', cpp: 'cpp', txt: 'txt' };
+        const extension = extensionMap[lang] || 'txt';
+        const filename = `code.${extension}`;
+
+        const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleUpload = async () => {
+        const file = await new Promise<File | null>(resolve => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.py,.java,.cpp,.txt,.c,.h,.hpp,.cc';
+            input.onchange = e => resolve((e.target as HTMLInputElement).files?.[0] ?? null);
+            input.addEventListener('cancel', () => resolve(null));
+            input.click();
+        });
+
+        if (!file) return;
+
+        const newCode = await file.text();
+        const extension = file.name.split('.').pop()?.toLowerCase();
+        let newLang: Language = 'auto';
+
+        if (extension === 'py') newLang = 'python';
+        else if (extension === 'java') newLang = 'java';
+        else if (['cpp', 'c', 'h', 'hpp', 'cc'].includes(extension || '')) newLang = 'cpp';
+        
+        setCode(newCode);
+        setLanguage(newLang);
+        if (newLang !== 'auto') {
+            setDetectedLanguage(newLang);
+        } else {
+            setDetectedLanguage(null);
+        }
+        setAnalysisResult(null);
+    };
+
+    const handleExtractFromImage = async () => {
+        const file = await new Promise<File | null>(resolve => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = e => resolve((e.target as HTMLInputElement).files?.[0] ?? null);
+            input.addEventListener('cancel', () => resolve(null));
+            input.click();
+        });
+
+        if (!file) return;
+
+        setIsExtracting(true);
+        setError(null);
+        setAnalysisResult(null);
+
+        try {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            await new Promise<void>((resolve, reject) => {
+                reader.onload = async () => {
+                    try {
+                        const base64Data = (reader.result as string).split(',')[1];
+                        const imageData = { mimeType: file.type, data: base64Data };
+                        const extractedCode = await extractCodeFromImage(imageData);
+                        setCode(extractedCode);
+                        // Reset language to auto-detect the new code
+                        setLanguage('auto');
+                        setDetectedLanguage(null);
+                        resolve();
+                    } catch (e) {
+                        reject(e);
+                    }
+                };
+                reader.onerror = error => reject(error);
+            });
+        } catch (e) {
+            const errorMsg = e instanceof Error ? e.message : 'Failed to extract code from image.';
+            setError(errorMsg);
+            setAnalysisResult({ bigO: `Error: ${errorMsg}`, lines: [] });
+        } finally {
+            setIsExtracting(false);
+        }
+    };
+
+    const handleResetSettings = () => {
+        setTheme('modern');
+        setFontFamily(`'Fira Code', monospace`);
+        setFontSize(16);
+        setLineHeight(1.5);
+        setFontLigatures(false);
+        setModelPreference('quality');
+        // Clear from localStorage as well
+        localStorage.removeItem('editorTheme');
+        localStorage.removeItem('editorFontFamily');
+        localStorage.removeItem('editorFontSize');
+        localStorage.removeItem('editorLineHeight');
+        localStorage.removeItem('fontLigatures');
+        localStorage.removeItem('modelPreference');
     };
     
     return (
@@ -361,6 +485,7 @@ const App: React.FC = () => {
                     fontSize={fontSize}
                     lineHeight={lineHeight}
                     theme={theme}
+                    fontLigatures={fontLigatures}
                 />
             </main>
             <StatusBar
@@ -368,13 +493,22 @@ const App: React.FC = () => {
                 detectedLanguage={detectedLanguage}
                 analysisResult={analysisResult}
                 bigO={analysisResult?.bigO || (error ? "Error" : null)}
-                isLoading={isLoading}
+                isAnalyzing={isAnalyzing}
+                isOptimizing={isOptimizing}
+                isExtracting={isExtracting}
+                isCodeEmpty={!code.trim()}
                 onAnalyze={handleAnalyze}
                 onOptimize={() => setIsOptimizeOptionsModalOpen(true)}
                 onShowAnalysis={() => setIsAnalysisDetailModalOpen(true)}
                 onSettings={() => setIsSettingsModalOpen(true)}
                 onHelp={() => setIsHelpOpen(true)}
-                onToggleHistory={() => setIsHistorySidebarOpen(p => !p)}
+                onToggleHistory={() => {
+                    setHistoryInitialTab('optimizations');
+                    setIsHistorySidebarOpen(p => !p);
+                }}
+                onUpload={handleUpload}
+                onSave={handleSave}
+                onExtractFromImage={handleExtractFromImage}
             />
             {isSettingsModalOpen && (
                 <SettingsModal
@@ -388,6 +522,11 @@ const App: React.FC = () => {
                     onFontSizeChange={setFontSize}
                     lineHeight={lineHeight}
                     onLineHeightChange={setLineHeight}
+                    fontLigatures={fontLigatures}
+                    onFontLigaturesChange={setFontLigatures}
+                    modelPreference={modelPreference}
+                    onModelPreferenceChange={setModelPreference}
+                    onReset={handleResetSettings}
                     onClose={() => setIsSettingsModalOpen(false)}
                 />
             )}
@@ -421,6 +560,7 @@ const App: React.FC = () => {
                 isVisible={isHistorySidebarOpen}
                 optimizationHistory={optimizationHistory}
                 analysisHistory={analysisHistory}
+                initialTab={historyInitialTab}
                 onSelectOptimization={handleSelectOptimizationHistoryItem}
                 onSelectAnalysis={handleSelectAnalysisHistoryItem}
                 onClose={() => setIsHistorySidebarOpen(false)}

@@ -23,6 +23,7 @@ interface CodeEditorProps {
   fontSize: number;
   lineHeight: number;
   theme: string;
+  fontLigatures: boolean;
 }
 
 const lineAnalysisHighlight = (analysisLines: LineAnalysis[]) => {
@@ -70,6 +71,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   fontSize,
   lineHeight,
   theme,
+  fontLigatures,
 }) => {
   const languageExtension = useMemo(() => {
     switch (language) {
@@ -113,6 +115,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           fontFamily,
           fontSize: `${fontSize}px`,
           lineHeight: `${lineHeight}`,
+          fontVariantLigatures: fontLigatures ? 'common-ligatures' : 'none',
         }}
         extensions={extensions}
         theme={selectedTheme}

@@ -220,38 +220,42 @@
         
         /* Styles for the Analysis Detail Modal code view */
         .analysis-code-view {
-            padding-left: 7rem !important;
+            position: relative !important;
+            display: block;
+            padding-left: 7.5rem; /* The gutter area */
         }
-        .analysis-code-view pre {
-            background-color: transparent !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            width: 100%;
-        }
-
         .analysis-code-view .code-line {
             position: relative !important;
-            display: flex !important;
-            align-items: center;
+            display: block !important;
         }
-
         .analysis-code-view .code-line::before {
             content: attr(data-execution-count);
             position: absolute;
-            left: -7rem;
-            width: 6rem;
+            left: -7.5rem; /* Position at the start of the gutter */
+            width: 5rem; /* First column for execution count */
             text-align: right;
-            padding-right: 1rem;
+            padding-right: 0.5rem;
             color: var(--text-tertiary);
             font-family: 'Fira Code', monospace;
             font-size: 0.8em;
             opacity: 0.7;
             white-space: pre;
         }
-
         .analysis-code-view .code-line.non-executable::before {
             opacity: 0.4;
             font-style: italic;
+        }
+        
+        /* Styles for Settings Modal sections */
+        .settings-section {
+            padding-top: 1rem;
+            margin-top: 1rem;
+            border-top: 1px solid var(--border-primary);
+        }
+        .settings-section:first-child {
+             padding-top: 0;
+             margin-top: 0;
+             border-top: none;
         }
     </style>
     <script type="importmap">

@@ -5,6 +5,8 @@ import type {
   Language,
   ConcreteLanguage,
   ChatMessage,
+  RecommendedQuestion,
+  ModelPreference,
 } from '../types';
 
 // According to guidelines, API key is in process.env.API_KEY
@@ -17,11 +19,9 @@ export const getLanguage = async (code: string, languageHint: Language): Promise
         return languageHint;
     }
     
-    // FIX: Use gemini-2.5-flash for simple classification tasks.
     const model = 'gemini-2.5-flash';
     
     try {
-        // FIX: Call generateContent to get model response.
         const response = await ai.models.generateContent({
             model: model,
             contents: `Detect the programming language of the following code. Respond with only one of 'python', 'java', or 'cpp'.\n\nCode:\n\`\`\`\n${code}\n\`\`\``,
@@ -30,26 +30,43 @@ export const getLanguage = async (code: string, languageHint: Language): Promise
             }
         });
 
-        // FIX: Extract text from response using the .text property.
         const lang = response.text.trim().toLowerCase();
         if (lang === 'python' || lang === 'java' || lang === 'cpp') {
             return lang;
         }
-        // Fallback or error
         console.warn('Language detection failed, falling back to python. Response:', lang);
         return 'python';
     } catch (error) {
         console.error('Error detecting language:', error);
-        // Fallback in case of API error
         return 'python';
     }
 };
 
-export const analyzeCode = async (code: string, language: ConcreteLanguage): Promise<AnalysisResult> => {
-    // FIX: Use gemini-2.5-pro for complex reasoning tasks like code analysis.
-    const model = 'gemini-2.5-pro';
+export const extractCodeFromImage = async (imageData: { mimeType: string; data: string }): Promise<string> => {
+    const model = 'gemini-2.5-flash';
+    const prompt = "Extract all of the code from this image. Respond with only the raw code text, without any explanations, comments about the code, or markdown formatting like ```.";
+
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: {
+                parts: [
+                    { text: prompt },
+                    { inlineData: imageData }
+                ]
+            }
+        });
+        return response.text.trim();
+    } catch (error) {
+        console.error('Error extracting code from image:', error);
+        throw new Error('Failed to extract code from image with Gemini API.');
+    }
+};
+
+
+export const analyzeCode = async (code: string, language: ConcreteLanguage, modelPreference: ModelPreference): Promise<AnalysisResult> => {
+    const model = modelPreference === 'quality' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
     
-    // FIX: Define response schema for structured JSON output.
     const analysisSchema = {
         type: Type.OBJECT,
         properties: {
@@ -131,9 +148,10 @@ ${code}
 export const optimizeCode = async (
   code: string, 
   language: ConcreteLanguage,
+  modelPreference: ModelPreference,
   existingAnalysis?: AnalysisResult
 ): Promise<OptimizationResult> => {
-    const model = 'gemini-2.5-pro';
+    const model = modelPreference === 'quality' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
 
     const optimizationSchema = {
         type: Type.OBJECT,
@@ -161,9 +179,25 @@ export const optimizeCode = async (
                     },
                     required: ['title', 'url', 'type']
                 }
+            },
+            recommendedQuestions: {
+                type: Type.ARRAY,
+                description: "An array of exactly 3 diverse, insightful follow-up questions a user might have after reading the suggestion. These questions should help guide the conversation.",
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        question: { type: Type.STRING, description: "The suggested question text." },
+                        depth: {
+                            type: Type.STRING,
+                            enum: ['short', 'deep', 'page'],
+                            description: "The appropriate answer format for the question. 'page' for visualizations/interactive demos, 'deep' for detailed explanations, 'short' for quick clarifications."
+                        }
+                    },
+                    required: ['question', 'depth']
+                }
             }
         },
-        required: ['optimized', 'suggestion', 'resources']
+        required: ['optimized', 'suggestion', 'resources', 'recommendedQuestions']
     };
 
     const prompt = `
@@ -177,7 +211,8 @@ An initial complexity analysis has already been performed, yielding this result:
 Your response must be a JSON object that adheres to the provided schema.
 - If the code is already optimal, set "optimized" to true and explain why in the "suggestion" field.
 - If it can be improved, set "optimized" to false, provide a detailed "suggestion" in Markdown format on how to improve it (you can include code snippets using Markdown).
-- Provide up to 3 relevant "resources" for further learning. When searching for resources, prioritize including at least one high-quality YouTube video tutorial if available on the topic.
+- Provide up to 3 relevant "resources" for further learning. Prioritize high-quality video tutorials if available.
+- Provide exactly 3 "recommendedQuestions" a user might ask next. These should be insightful and diverse. For each, suggest an appropriate answer 'depth': 'page' for visual/interactive answers, 'deep' for detailed explanations, and 'short' for quick clarifications.
 
 Code:
 \`\`\`${language}
@@ -211,6 +246,7 @@ interface ContinueChatParams {
   history: ChatMessage[];
   newUserMessage: string;
   answerDepth: 'short' | 'deep' | 'page';
+  modelPreference: ModelPreference;
 }
 
 export const continueChat = async ({
@@ -220,8 +256,9 @@ export const continueChat = async ({
     history,
     newUserMessage,
     answerDepth,
+    modelPreference,
 }: ContinueChatParams): Promise<string> => {
-    const model = 'gemini-2.5-pro';
+    const model = modelPreference === 'quality' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
 
     let depthInstructions = '';
 

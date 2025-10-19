@@ -6,13 +6,19 @@ interface StatusBarProps {
   detectedLanguage: ConcreteLanguage | null;
   analysisResult: AnalysisResult | null;
   bigO: string | null;
-  isLoading: boolean;
+  isAnalyzing: boolean;
+  isOptimizing: boolean;
+  isExtracting: boolean;
+  isCodeEmpty: boolean;
   onAnalyze: () => void;
   onOptimize: () => void;
   onShowAnalysis: () => void;
   onSettings: () => void;
   onHelp: () => void;
   onToggleHistory: () => void;
+  onUpload: () => void;
+  onSave: () => void;
+  onExtractFromImage: () => void;
 }
 
 const Spinner: React.FC = () => (
@@ -27,36 +33,44 @@ const StatusBar: React.FC<StatusBarProps> = ({
   detectedLanguage,
   analysisResult,
   bigO,
-  isLoading,
+  isAnalyzing,
+  isOptimizing,
+  isExtracting,
+  isCodeEmpty,
   onAnalyze,
   onOptimize,
   onShowAnalysis,
   onSettings,
   onHelp,
-  onToggleHistory
+  onToggleHistory,
+  onUpload,
+  onSave,
+  onExtractFromImage,
 }) => {
   const languageDisplay = language === 'auto' 
     ? (detectedLanguage ? `Auto (${detectedLanguage})` : 'Auto')
     : language;
+    
+  const areActionsDisabled = isAnalyzing || isOptimizing || isExtracting;
     
   return (
     <footer className="bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] p-2 flex items-center justify-between text-sm flex-shrink-0">
       <div className="flex items-center space-x-4">
         <button 
           onClick={onAnalyze}
-          disabled={isLoading}
-          className="flex items-center bg-[var(--bg-interactive)] hover:bg-[var(--bg-interactive-hover)] disabled:bg-[var(--bg-interactive-disabled)] disabled:cursor-not-allowed text-[var(--text-on-interactive)] font-semibold py-2 px-4 rounded-md transition-colors"
+          disabled={areActionsDisabled}
+          className="flex items-center justify-center w-32 bg-[var(--bg-interactive)] hover:bg-[var(--bg-interactive-hover)] disabled:bg-[var(--bg-interactive-disabled)] disabled:cursor-not-allowed text-[var(--text-on-interactive)] font-semibold py-2 px-4 rounded-md transition-colors"
           data-tour="analyze-button"
         >
-          {isLoading ? <><Spinner /> Analyzing...</> : 'Analyze'}
+          {isAnalyzing ? <><Spinner /> Analyzing...</> : 'Analyze'}
         </button>
         <button 
           onClick={onOptimize}
-          disabled={isLoading}
-          className="bg-[var(--bg-tertiary)] hover:bg-[var(--bg-quaternary)] disabled:bg-[var(--bg-secondary)] disabled:cursor-not-allowed text-[var(--text-secondary)] py-2 px-4 rounded-md transition-colors"
+          disabled={areActionsDisabled}
+          className="flex items-center justify-center w-32 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-quaternary)] disabled:bg-[var(--bg-secondary)] disabled:cursor-not-allowed text-[var(--text-secondary)] py-2 px-4 rounded-md transition-colors"
           data-tour="optimize-button"
         >
-          Optimize
+          {isOptimizing ? <><Spinner /> Optimizing...</> : 'Optimize'}
         </button>
         <div className="flex items-center space-x-2 pl-4 border-l border-[var(--border-secondary)]">
             <span className="text-[var(--text-tertiary)]">Language:</span>
@@ -72,8 +86,44 @@ const StatusBar: React.FC<StatusBarProps> = ({
       <div className="flex items-center space-x-2 text-[var(--text-secondary)]">
         <div className="pl-2 border-l border-[var(--border-secondary)] flex items-center space-x-2">
             <button
+              onClick={onUpload}
+              disabled={areActionsDisabled}
+              className="p-2 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Upload file"
+              title="Upload file"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+            </button>
+            <button
+                onClick={onExtractFromImage}
+                disabled={areActionsDisabled}
+                className="p-2 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                aria-label="Extract code from image"
+                title="Extract code from image"
+            >
+                {isExtracting ? 
+                    <Spinner /> : 
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                }
+            </button>
+             <button
+              onClick={onSave}
+              disabled={areActionsDisabled || isCodeEmpty}
+              className="p-2 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Save file"
+              title="Save file"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2m-4-5l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </button>
+            <button
               onClick={onShowAnalysis}
-              disabled={!analysisResult || analysisResult.lines.length === 0}
+              disabled={!analysisResult || analysisResult.lines.length === 0 || areActionsDisabled}
               className="p-2 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="View analysis details"
               title="View analysis details"
@@ -82,17 +132,17 @@ const StatusBar: React.FC<StatusBarProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </button>
-            <button onClick={onToggleHistory} className="p-2 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors" aria-label="Toggle History">
+            <button onClick={onToggleHistory} className="p-2 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors" aria-label="Toggle History" disabled={areActionsDisabled}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" />
               </svg>
             </button>
-            <button onClick={onSettings} className="p-2 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors" aria-label="Settings" data-tour="settings-button">
+            <button onClick={onSettings} className="p-2 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors" aria-label="Settings" data-tour="settings-button" disabled={areActionsDisabled}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
               </svg>
             </button>
-            <button onClick={onHelp} className="p-2 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors" aria-label="Help">
+            <button onClick={onHelp} className="p-2 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors" aria-label="Help" disabled={areActionsDisabled}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
               </svg>
