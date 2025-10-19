@@ -70,7 +70,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   lineHeight,
   theme,
 }) => {
-  const [tooltip, setTooltip] = useState<{ content: string; top: number; left: number; line: number } | null>(null);
+  const [tooltip, setTooltip] = useState<{ content: string; top: number; left: number; line: number, sticky: boolean } | null>(null);
   
   useEffect(() => {
     const closeTooltip = () => setTooltip(null);
@@ -104,7 +104,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       }
   }, [theme]);
 
-  const gutterClickHandler = useMemo(() => EditorView.domEventHandlers({
+  const gutterEventHandlers = useMemo(() => EditorView.domEventHandlers({
     click: (event, view) => {
         const target = event.target as HTMLElement;
         const gutterElement = target.closest('.cm-gutterElement');
@@ -112,7 +112,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             event.stopPropagation();
             const lineNo = view.state.doc.lineAt(view.posAtDOM(target)).number;
 
-            if (tooltip && tooltip.line === lineNo) {
+            if (tooltip && tooltip.line === lineNo && tooltip.sticky) {
                 setTooltip(null);
                 return;
             }
@@ -125,10 +125,35 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                     top: rect.top,
                     left: rect.right + 10,
                     line: lineNo,
+                    sticky: true,
                 });
             } else {
                 setTooltip(null);
             }
+        }
+    },
+    mouseover: (event, view) => {
+        if (tooltip && tooltip.sticky) return; // Don't show hover tooltip if a sticky one is active
+        const target = event.target as HTMLElement;
+        const gutterElement = target.closest('.cm-gutterElement');
+        if (gutterElement) {
+            const lineNo = view.state.doc.lineAt(view.posAtDOM(target)).number;
+            const analysis = analysisLines.find(l => l.lineNumber === lineNo);
+            if (analysis) {
+                const rect = gutterElement.getBoundingClientRect();
+                setTooltip({
+                    content: analysis.analysis,
+                    top: rect.top,
+                    left: rect.right + 10,
+                    line: lineNo,
+                    sticky: false,
+                });
+            }
+        }
+    },
+    mouseout: () => {
+        if (tooltip && !tooltip.sticky) {
+            setTooltip(null); // Hide hover tooltips
         }
     }
   }), [analysisLines, tooltip]);
@@ -136,14 +161,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const extensions = useMemo(() => {
     const exts: Extension[] = [
         ...languageExtension,
-        gutterClickHandler,
+        gutterEventHandlers,
         EditorView.lineWrapping,
     ];
     if (analysisLines.length > 0) {
       exts.push(lineAnalysisHighlight(analysisLines));
     }
     return exts;
-  }, [analysisLines, languageExtension, gutterClickHandler]);
+  }, [analysisLines, languageExtension, gutterEventHandlers]);
 
   return (
     <div className="flex-grow h-full overflow-auto relative code-editor-wrapper">
