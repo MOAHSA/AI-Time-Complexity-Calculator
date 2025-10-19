@@ -192,31 +192,41 @@ const App: React.FC = () => {
     const handleContinueChat = async (message: string) => {
         if (!activeHistoryItem) return;
 
-        const updatedHistoryItem: OptimizationHistoryItem = { 
+        const userMessage: ChatMessage = { role: 'user', content: message };
+        const loadingMessage: ChatMessage = { role: 'loading', content: '...' };
+
+        const updatedHistoryWithUserAndLoading: OptimizationHistoryItem = {
             ...activeHistoryItem,
-            chatHistory: [...activeHistoryItem.chatHistory, { role: 'user', content: message }]
+            chatHistory: [...activeHistoryItem.chatHistory, userMessage, loadingMessage]
         };
-        setActiveHistoryItem(updatedHistoryItem);
+        setActiveHistoryItem(updatedHistoryWithUserAndLoading);
         
         try {
             const response = await continueChat({
-                originalCode: updatedHistoryItem.originalCode,
-                language: updatedHistoryItem.language,
-                optimizationSuggestion: updatedHistoryItem.result.suggestion,
-                history: updatedHistoryItem.chatHistory.slice(0, -1), // Send history before new user message
+                originalCode: activeHistoryItem.originalCode,
+                language: activeHistoryItem.language,
+                optimizationSuggestion: activeHistoryItem.result.suggestion,
+                history: [...activeHistoryItem.chatHistory, userMessage], // Send history including the new user message
                 newUserMessage: message,
             });
             
-            updatedHistoryItem.chatHistory.push({ role: 'model', content: response });
-            setActiveHistoryItem({ ...updatedHistoryItem });
-
-            // Update history array
-            setHistory(prev => prev.map(item => item.id === updatedHistoryItem.id ? updatedHistoryItem : item));
+            const modelMessage: ChatMessage = { role: 'model', content: response };
+            const finalHistoryItem: OptimizationHistoryItem = {
+                ...activeHistoryItem,
+                chatHistory: [...activeHistoryItem.chatHistory, userMessage, modelMessage]
+            };
+            setActiveHistoryItem(finalHistoryItem);
+            setHistory(prev => prev.map(item => item.id === finalHistoryItem.id ? finalHistoryItem : item));
 
         } catch (e) {
             const errorMsg = e instanceof Error ? e.message : 'An unknown error occurred during chat.';
-            updatedHistoryItem.chatHistory.push({ role: 'model', content: `Error: ${errorMsg}`});
-            setActiveHistoryItem({ ...updatedHistoryItem });
+            const errorMessage: ChatMessage = { role: 'model', content: `Error: ${errorMsg}`};
+            const finalHistoryItem: OptimizationHistoryItem = {
+                ...activeHistoryItem,
+                chatHistory: [...activeHistoryItem.chatHistory, userMessage, errorMessage]
+            };
+            setActiveHistoryItem(finalHistoryItem);
+            setHistory(prev => prev.map(item => item.id === finalHistoryItem.id ? finalHistoryItem : item));
         }
     };
 

@@ -24,7 +24,7 @@ export type ConcreteLanguage = 'python' | 'java' | 'cpp';
 export type Language = 'auto' | ConcreteLanguage;
 
 export interface ChatMessage {
-  role: 'user' | 'model';
+  role: 'user' | 'model' | 'loading';
   content: string;
 }
 

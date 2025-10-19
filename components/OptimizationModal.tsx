@@ -33,7 +33,23 @@ const ResourceLink: React.FC<{ resource: OptimizationResource }> = ({ resource }
     );
 };
 
+const LoadingBubble: React.FC = () => (
+    <div className="flex w-full justify-start">
+        <div className="max-w-xl lg:max-w-2xl px-4 py-3 rounded-lg bg-[var(--bg-tertiary)] text-[var(--text-secondary)]">
+            <div className="flex items-center space-x-1 loading-dots">
+                <span className="h-2 w-2 bg-current rounded-full"></span>
+                <span className="h-2 w-2 bg-current rounded-full"></span>
+                <span className="h-2 w-2 bg-current rounded-full"></span>
+            </div>
+        </div>
+    </div>
+);
+
 const ChatBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
+    if (message.role === 'loading') {
+        return <LoadingBubble />;
+    }
+
     const isUser = message.role === 'user';
     return (
         <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>

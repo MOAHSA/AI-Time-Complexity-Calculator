@@ -130,7 +130,7 @@ export const optimizeCode = async (code: string, language: ConcreteLanguage): Pr
             },
             resources: {
                 type: Type.ARRAY,
-                description: 'An array of up to 3 relevant learning resources (articles, videos, documentation) that help understand the optimization concepts.',
+                description: 'An array of up to 3 relevant learning resources (articles, YouTube videos, documentation) that help understand the optimization concepts.',
                 items: {
                     type: Type.OBJECT,
                     properties: {
@@ -154,7 +154,7 @@ Analyze and suggest optimizations for the following ${language} code to improve 
 Your response must be a JSON object that adheres to the provided schema.
 - If the code is already optimal, set "optimized" to true and explain why in the "suggestion" field.
 - If it can be improved, set "optimized" to false, provide a detailed "suggestion" in Markdown format on how to improve it (you can include code snippets using Markdown).
-- Provide up to 3 relevant "resources" for further learning.
+- Provide up to 3 relevant "resources" for further learning. When searching for resources, prioritize including at least one high-quality YouTube video tutorial if available on the topic.
 
 Code:
 \`\`\`${language}
@@ -198,28 +198,38 @@ export const continueChat = async ({
 }: ContinueChatParams): Promise<string> => {
     const model = 'gemini-2.5-pro';
 
-    let prompt = `
-You are an expert programmer helping a user understand a code optimization.
+    let prompt = `You are an expert AI assistant that provides detailed, well-structured, and easy-to-render responses formatted in Markdown.
 
-Here is the context:
-Original ${language} code:
+### CONTEXT
+The user is asking a follow-up question about a code optimization suggestion.
+- Original ${language} code:
 \`\`\`${language}
 ${originalCode}
 \`\`\`
-
-Your initial optimization suggestion was:
+- Your initial optimization suggestion:
 ---
 ${optimizationSuggestion}
 ---
-
-Now, continue the conversation. Here is the chat history so far (user messages are prefixed with "User:", your responses are prefixed with "AI:"):
+- Conversation History:
 ${history.map(msg => `${msg.role === 'user' ? 'User' : 'AI'}: ${msg.content}`).join('\n')}
 
-The user has a new question:
-User: ${newUserMessage}
+### USER'S NEW QUESTION
+${newUserMessage}
 
-Your task is to provide a helpful and concise answer to the user's new question, keeping the full context in mind. Do not repeat the original suggestion unless asked.
-AI:`;
+### YOUR TASK
+Answer the user's new question based on the full context provided.
+
+### RESPONSE FORMATTING REQUIREMENTS
+- Organize the answer into clear sections using Markdown headings (e.g., ### Title).
+- Use paragraphs and bullet points for explanations.
+- Include code snippets within Markdown triple backticks, specifying the language (e.g., \`\`\`python).
+- If explaining algorithms or comparisons, provide tables in Markdown format with clear headers.
+- When applicable, include flowcharts or diagrams using Mermaid syntax inside fenced code blocks (e.g., \`\`\`mermaid).
+- Use inline code formatting (\`example\`) for function names or code elements mentioned within paragraphs.
+- For mathematical expressions, format using LaTeX syntax enclosed in dollar signs (e.g., $O(n \\log n)$).
+- Provide clickable links with descriptive text where relevant.
+- Limit output to relevant content only, avoiding unnecessary filler.
+- Do not repeat the original suggestion unless specifically asked.`;
 
     try {
         const response = await ai.models.generateContent({
