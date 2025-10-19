@@ -36,7 +36,7 @@ This project runs directly in the browser without a build step. Follow these ins
 
 1.  **Get the Code:** Clone the repository or download the source files to your local machine.
     ```bash
-    git clone (https://github.com/MOAHSA/AI-Time-Complexity-Calculator)
+    git clone https://github.com/MOAHSA/AI-Time-Complexity-Calculator
     cd AI-Time-Complexity-Calculator
     ```
 
