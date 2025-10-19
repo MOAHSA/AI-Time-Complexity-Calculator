@@ -36,8 +36,8 @@ This project runs directly in the browser without a build step. Follow these ins
 
 1.  **Get the Code:** Clone the repository or download the source files to your local machine.
     ```bash
-    git clone https://github.com/MOAHSA/AI-Time-Complexity-Calculator
-    cd AI-Time-Complexity-Calculator
+    git clone https://github.com/your-repo/ai-complexity-tool.git
+    cd ai-complexity-tool
     ```
 
 2.  **Configure Your API Key:**
@@ -64,6 +64,24 @@ This project runs directly in the browser without a build step. Follow these ins
 4.  **Open in Browser:**
     -   Open your web browser and navigate to the address provided by your local server. It is typically `http://localhost:8000`.
     -   The application should now be running and fully functional.
+
+## Building the Application
+
+This project is designed to run directly in the browser without a traditional build step. There is **no need** to run commands like `npm run build` or use tools like Webpack or Vite.
+
+This is made possible by using modern browser features like **ES Modules** and an **`importmap`** in `index.html`. All dependencies (like React, CodeMirror, etc.) are loaded directly from a Content Delivery Network (CDN), and the browser handles the TypeScript compilation on the fly.
+
+### Deployment
+
+To deploy this application, you simply need to host the project's static files. You can upload the entire project directory (containing `index.html`, `index.tsx`, `components/`, etc.) to any static hosting provider.
+
+Popular free options include:
+- Vercel
+- Netlify
+- GitHub Pages
+- Cloudflare Pages
+
+The hosting service will serve the `index.html` file, and the browser will handle the rest, just like your local web server does.
 
 ## Project Structure
 
