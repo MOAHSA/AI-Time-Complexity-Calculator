@@ -1,7 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import type { AnalysisResult, ConcreteLanguage, LineAnalysis } from '../types';
+import React, { useState } from 'react';
+import type { AnalysisResult, ConcreteLanguage } from '../types';
 
 interface AnalysisDetailModalProps {
   code: string;
@@ -13,64 +11,25 @@ interface AnalysisDetailModalProps {
 const AnalysisDetailModal: React.FC<AnalysisDetailModalProps> = ({ code, language, analysis, onClose }) => {
   const [isFullScreen, setIsFullScreen] = useState(false);
 
-  const analysisMap = useMemo(() => {
-    const map = new Map<number, LineAnalysis>();
-    if (analysis?.lines) {
-      for (const line of analysis.lines) {
-        map.set(line.lineNumber, line);
-      }
-    }
-    return map;
-  }, [analysis]);
+  if (!analysis) return null;
 
-  const getLineProps = (lineNumber: number) => {
-    const lineAnalysis = analysisMap.get(lineNumber);
-    const executionCount = lineAnalysis ? lineAnalysis.executionCount : '';
-    
-    // Check for terms the AI might use for non-code lines
-    const isNonExecutable = /N\/A|Comment|Declaration|Blank|brace/i.test(executionCount);
-    
-    const countDisplay = executionCount ? `[${executionCount}]` : '[-]';
-
-    return {
-      'data-execution-count': countDisplay,
-      className: `code-line ${isNonExecutable ? 'non-executable' : ''}`,
-      style: { display: 'block' }, // Required for react-syntax-highlighter
-    };
-  };
-  
-  const langAlias: { [key in ConcreteLanguage]: string } = {
-    python: 'python',
-    java: 'java',
-    cpp: 'cpp',
-  };
+  const codeLines = code.split('\n');
 
   return (
-    <div 
-      className="modal-backdrop"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-    >
+    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div 
         className={`bg-[var(--bg-secondary)] flex flex-col transition-all duration-300 ease-in-out
           ${isFullScreen 
-            ? 'w-screen h-screen' 
-            : 'rounded-lg shadow-xl w-full max-w-4xl m-4 h-[90vh]'
+            ? 'w-screen h-screen rounded-none m-0' 
+            : 'rounded-lg shadow-xl w-full max-w-4xl m-4 max-h-[90vh]'
           }`
         }
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-[var(--border-primary)] flex justify-between items-center flex-shrink-0 gap-4">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-              <h2 className="text-xl font-semibold text-[var(--text-primary)] whitespace-nowrap">
-                  Analysis Details
-              </h2>
-              <span className="font-mono bg-[var(--bg-tertiary)] text-[var(--text-secondary)] px-2 py-1 rounded-md text-base truncate" title={analysis?.bigO || 'N/A'}>
-                  {analysis?.bigO || 'N/A'}
-              </span>
-          </div>
-
+        <div className="p-6 border-b border-[var(--border-primary)] flex justify-between items-center flex-shrink-0">
+          <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+            Analysis Details - <span className="font-mono bg-[var(--bg-tertiary)] text-[var(--text-secondary)] px-2 py-1 rounded-md">{analysis.bigO}</span>
+          </h2>
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setIsFullScreen(p => !p)}
@@ -98,27 +57,39 @@ const AnalysisDetailModal: React.FC<AnalysisDetailModalProps> = ({ code, languag
             </button>
           </div>
         </div>
-        <div className="p-6 flex-grow overflow-auto">
-          <SyntaxHighlighter
-            language={language ? langAlias[language] : 'text'}
-            style={vscDarkPlus as any}
-            showLineNumbers
-            wrapLines
-            lineProps={getLineProps}
-            codeTagProps={{
-                className: 'analysis-code-view'
-            }}
-            lineNumberStyle={{
-                position: 'absolute',
-                left: '5rem', /* Second column for line number */
-                width: '2.5rem',
-                textAlign: 'right',
-                color: 'var(--text-tertiary)',
-                userSelect: 'none',
-            }}
-          >
-            {code}
-          </SyntaxHighlighter>
+        <div className="p-6 overflow-y-auto flex-grow">
+          <div className={`mx-auto w-full ${isFullScreen ? 'max-w-6xl' : ''}`}>
+            <table className="w-full text-left font-mono text-sm">
+              <thead className="sticky top-0 bg-[var(--bg-secondary)]">
+                <tr>
+                  <th className="p-2 w-12 text-[var(--text-tertiary)]">Line</th>
+                  <th className="p-2 text-[var(--text-tertiary)]">Code</th>
+                  <th className="p-2 w-24 text-center text-[var(--text-tertiary)]">Executions</th>
+                  <th className="p-2 text-[var(--text-tertiary)]">Analysis</th>
+                </tr>
+              </thead>
+              <tbody>
+                {analysis.lines.map((line, index) => (
+                  <tr key={index} className="border-t border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)]">
+                    <td className="p-2 text-center text-[var(--text-tertiary)]">{line.lineNumber}</td>
+                    <td className="p-2">
+                      <pre className="whitespace-pre-wrap text-[var(--text-primary)]"><code>{codeLines[index] || ''}</code></pre>
+                    </td>
+                    <td className="p-2 text-center text-[var(--text-secondary)]">{line.executionCount}</td>
+                    <td className="p-2 text-[var(--text-secondary)]">{line.analysis}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="p-4 bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] flex justify-end flex-shrink-0">
+            <button
+              onClick={onClose}
+              className="bg-[var(--bg-interactive)] hover:bg-[var(--bg-interactive-hover)] text-[var(--text-on-interactive)] font-semibold py-2 px-4 rounded-md transition-colors"
+            >
+                Close
+            </button>
         </div>
       </div>
     </div>

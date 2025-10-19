@@ -1,41 +1,21 @@
-
 import React from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
-import rehypeRaw from 'rehype-raw';
 
 interface HelpTourProps {
   onClose: () => void;
 }
 
-const helpContent = `
-This is an AI-powered tool to help you understand code complexity.
-
-*   **Code Editor:** Write or paste your code in the main editor area.
-*   **Analyze Button:** Click this to start the time complexity analysis. The overall complexity (e.g., $O(n^2)$) will appear in the status bar at the bottom.
-*   **View Analysis (Document Icon):** After a successful analysis, this icon will appear in the status bar. Click it to see a detailed, line-by-line breakdown of execution counts.
-*   **Optimize Button:** Click this to get AI-powered suggestions for improving your code's efficiency.
-*   **Settings (Gear Icon):** Change the language detection mode, editor appearance, and application theme.
-
-Get started by pasting some code and hitting "Analyze"!
-`;
-
 const HelpTour: React.FC<HelpTourProps> = ({ onClose }) => {
   return (
     <div 
       className="modal-backdrop"
-      onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
       <div 
-        className="bg-[var(--bg-secondary)] rounded-lg shadow-xl w-full max-w-lg m-4"
-        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+        className="bg-[var(--bg-secondary)] rounded-lg shadow-xl w-full max-w-2xl m-4 flex flex-col max-h-[90vh]"
       >
-        <div className="p-6 border-b border-[var(--border-primary)] flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-[var(--text-primary)]">Welcome!</h2>
+        <div className="p-6 border-b border-[var(--border-primary)] flex justify-between items-center flex-shrink-0">
+          <h2 className="text-xl font-semibold text-[var(--text-primary)]">Welcome to the Code Analyzer!</h2>
           <button
             onClick={onClose}
             className="p-2 rounded-full text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--bg-secondary)] focus:ring-[var(--ring-color)]"
@@ -46,15 +26,37 @@ const HelpTour: React.FC<HelpTourProps> = ({ onClose }) => {
             </svg>
           </button>
         </div>
-        <div className="p-6 prose prose-invert max-w-none text-[var(--text-secondary)]">
-          <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeRaw, rehypeKatex]}
-          >
-              {helpContent}
-          </ReactMarkdown>
+        <div className="p-6 space-y-4 overflow-y-auto text-[var(--text-secondary)]">
+          <p>This tool helps you understand and improve your code's performance.</p>
+          
+          <h3 className="text-lg font-semibold text-[var(--text-primary)] pt-2">How to Use:</h3>
+          <ol className="list-decimal list-inside space-y-2">
+            <li>
+              <strong>Write or Paste Code:</strong> Start by writing your code in the editor. You can also upload a file or extract code from an image using the buttons in the status bar.
+            </li>
+            <li>
+              <strong>Select Language:</strong> Use the settings (gear icon) to select your programming language (Python, Java, C++) or leave it on "Auto" for automatic detection.
+            </li>
+            <li>
+              <strong>Analyze:</strong> Click the <span className="font-semibold text-[var(--text-on-interactive)] bg-[var(--bg-interactive)] px-2 py-0.5 rounded">Analyze</span> button. This will provide a line-by-line breakdown of your code's time complexity.
+            </li>
+            <li>
+              <strong>Optimize:</strong> Click the <span className="font-semibold text-[var(--text-secondary)] bg-[var(--bg-tertiary)] px-2 py-0.5 rounded">Optimize</span> button. Our AI will suggest improvements to your code's performance and provide learning resources.
+            </li>
+            <li>
+              <strong>Chat with AI:</strong> After getting an optimization suggestion, you can ask follow-up questions in the chat to deepen your understanding.
+            </li>
+             <li>
+              <strong>View History:</strong> Access your past analyses and optimizations using the history (clock) icon.
+            </li>
+          </ol>
+
+          <h3 className="text-lg font-semibold text-[var(--text-primary)] pt-2">Settings:</h3>
+           <p>
+             Click the <span className="font-bold">gear icon</span> in the status bar to customize the editor's theme, font, and the AI model preference (Quality vs. Speed).
+           </p>
         </div>
-         <div className="p-4 bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] flex justify-end">
+        <div className="p-4 bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] flex justify-end flex-shrink-0">
             <button
               onClick={onClose}
               className="bg-[var(--bg-interactive)] hover:bg-[var(--bg-interactive-hover)] text-[var(--text-on-interactive)] font-semibold py-2 px-4 rounded-md transition-colors"
