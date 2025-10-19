@@ -58,16 +58,43 @@ const ChatBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
                     rehypePlugins={[rehypeRaw]}
                     components={{
                         code({ node, inline, className, children, ...props }) {
+                            const [isCopied, setIsCopied] = useState(false);
                             const match = /language-(\w+)/.exec(className || '');
+
+                            const handleCopy = () => {
+                                const codeString = String(children).replace(/\n$/, '');
+                                navigator.clipboard.writeText(codeString).then(() => {
+                                    setIsCopied(true);
+                                    setTimeout(() => setIsCopied(false), 2000); // Reset after 2 seconds
+                                });
+                            };
+
                             return !inline && match ? (
-                                <SyntaxHighlighter
-                                    style={vscDarkPlus}
-                                    language={match[1]}
-                                    PreTag="div"
-                                    {...props}
-                                >
-                                    {String(children).replace(/\n$/, '')}
-                                </SyntaxHighlighter>
+                                <div className="relative group bg-[#1e1e1e] rounded-md">
+                                    <button 
+                                        onClick={handleCopy}
+                                        className="absolute top-2 right-2 p-1 rounded-md bg-white/10 hover:bg-white/20 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        aria-label="Copy code"
+                                    >
+                                        {isCopied ? (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                    <SyntaxHighlighter
+                                        style={vscDarkPlus}
+                                        language={match[1]}
+                                        PreTag="div"
+                                        {...props}
+                                    >
+                                        {String(children).replace(/\n$/, '')}
+                                    </SyntaxHighlighter>
+                                </div>
                             ) : (
                                 <code className={className} {...props}>
                                     {children}
@@ -134,16 +161,43 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
                     rehypePlugins={[rehypeRaw]}
                     components={{
                         code({ node, inline, className, children, ...props }) {
+                             const [isCopied, setIsCopied] = useState(false);
                             const match = /language-(\w+)/.exec(className || '');
+
+                             const handleCopy = () => {
+                                const codeString = String(children).replace(/\n$/, '');
+                                navigator.clipboard.writeText(codeString).then(() => {
+                                    setIsCopied(true);
+                                    setTimeout(() => setIsCopied(false), 2000);
+                                });
+                            };
+
                             return !inline && match ? (
-                                <SyntaxHighlighter
-                                    style={vscDarkPlus}
-                                    language={match[1]}
-                                    PreTag="div"
-                                    {...props}
-                                >
-                                    {String(children).replace(/\n$/, '')}
-                                </SyntaxHighlighter>
+                                <div className="relative group bg-[#1e1e1e] rounded-md my-4">
+                                     <button 
+                                        onClick={handleCopy}
+                                        className="absolute top-2 right-2 p-1 rounded-md bg-white/10 hover:bg-white/20 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        aria-label="Copy code"
+                                    >
+                                        {isCopied ? (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                    <SyntaxHighlighter
+                                        style={vscDarkPlus}
+                                        language={match[1]}
+                                        PreTag="div"
+                                        {...props}
+                                    >
+                                        {String(children).replace(/\n$/, '')}
+                                    </SyntaxHighlighter>
+                                </div>
                             ) : (
                                 <code className={`${className || ''} bg-[var(--bg-tertiary)] text-[var(--text-primary)] px-1 py-0.5 rounded-sm`} {...props}>
                                     {children}
