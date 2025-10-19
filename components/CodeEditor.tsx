@@ -1,11 +1,16 @@
-
-import React, { memo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import CodeMirror from '@uiw/react-codemirror';
-import { EditorView } from '@codemirror/view';
-import { python } from '@codemirror/lang-python';
-import { java from '@codemirror/lang-java';
-import { cpp } from '@codemirror/lang-cpp';
 import { Extension } from '@codemirror/state';
+import { EditorView, Decoration, DecorationSet, ViewPlugin, ViewUpdate } from '@codemirror/view';
+import { python } from '@codemirror/lang-python';
+import { java from } from '@codemirror/lang-java';
+import { cpp } from '@codemirror/lang-cpp';
+import { vscodeDark } from '@uiw/codemirror-theme-vscode';
+import { solarizedLight } from '@uiw/codemirror-theme-solarized';
+import { nord } from '@uiw/codemirror-theme-nord';
+import { okaidia } from '@uiw/codemirror-theme-okaidia';
+
 import type { LineAnalysis, ConcreteLanguage } from '../types';
 
 interface CodeEditorProps {
@@ -16,19 +21,43 @@ interface CodeEditorProps {
   fontFamily: string;
   fontSize: number;
   lineHeight: number;
+  theme: string;
 }
 
-const getLanguageExtension = (language: ConcreteLanguage | null): Extension[] => {
-  switch (language) {
-    case 'python':
-      return [python()];
-    case 'java':
-      return [java()];
-    case 'cpp':
-      return [cpp()];
-    default:
-      return [python()]; // Defaulting to python for 'auto' before detection
-  }
+const lineAnalysisHighlight = (analysisLines: LineAnalysis[]) => {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+
+      constructor(view: EditorView) {
+        this.decorations = this.buildDecorations(view);
+      }
+
+      update(update: ViewUpdate) {
+        if (update.docChanged || update.viewportChanged) {
+          this.decorations = this.buildDecorations(update.view);
+        }
+      }
+
+      buildDecorations(view: EditorView): DecorationSet {
+        const builder: any[] = [];
+        for (const line of analysisLines) {
+          if (line.lineNumber > 0 && line.lineNumber <= view.state.doc.lines) {
+            const lineInfo = view.state.doc.line(line.lineNumber);
+            builder.push(
+              Decoration.line({
+                attributes: { class: 'cm-line-highlighted' },
+              }).range(lineInfo.from)
+            );
+          }
+        }
+        return Decoration.set(builder, true);
+      }
+    },
+    {
+      decorations: v => v.decorations,
+    }
+  );
 };
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -39,62 +68,118 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   fontFamily,
   fontSize,
   lineHeight,
+  theme,
 }) => {
-  const extensions = React.useMemo(() => getLanguageExtension(language), [language]);
+  const [tooltip, setTooltip] = useState<{ content: string; top: number; left: number; line: number } | null>(null);
+  
+  useEffect(() => {
+    const closeTooltip = () => setTooltip(null);
+    if (tooltip) {
+      window.addEventListener('scroll', closeTooltip, true); // Close on scroll in any scrollable container
+      window.addEventListener('click', closeTooltip);
+    }
+    return () => {
+      window.removeEventListener('scroll', closeTooltip, true);
+      window.removeEventListener('click', closeTooltip);
+    };
+  }, [tooltip]);
 
-  const theme = EditorView.theme({
-    '&': {
-      color: 'var(--text-primary)',
-      backgroundColor: 'var(--bg-primary)',
-      fontFamily: fontFamily,
-      fontSize: `${fontSize}px`,
-      height: '100%',
-    },
-    '.cm-content': {
-      caretColor: 'var(--text-interactive)',
-      lineHeight: `${lineHeight}`,
-    },
-    '&.cm-focused .cm-cursor': {
-      borderLeftColor: 'var(--text-interactive)',
-    },
-    '&.cm-focused .cm-selectionBackground, ::selection': {
-      backgroundColor: 'var(--bg-selection) !important',
-    },
-    '.cm-gutters': {
-      backgroundColor: 'var(--bg-secondary)',
-      color: 'var(--text-tertiary)',
-      border: 'none',
-      cursor: 'help',
-    },
-    '.cm-activeLineGutter': {
-        backgroundColor: 'var(--bg-tertiary)',
-    },
-  }, {dark: true});
 
-  // Use simple browser tooltips on line numbers for analysis.
-  const lineHoverTooltips = EditorView.domEventHandlers({
-    mousemove(event, view) {
+  const languageExtension = useMemo(() => {
+    switch (language) {
+      case 'python': return [python()];
+      case 'java': return [java()];
+      case 'cpp': return [cpp()];
+      default: return [];
+    }
+  }, [language]);
+  
+  const selectedTheme: Extension = useMemo(() => {
+      switch(theme) {
+          case 'modern': return vscodeDark;
+          case 'neon': return okaidia;
+          case 'light': return solarizedLight;
+          case 'ocean': return nord;
+          default: return vscodeDark;
+      }
+  }, [theme]);
+
+  const gutterClickHandler = useMemo(() => EditorView.domEventHandlers({
+    click: (event, view) => {
         const target = event.target as HTMLElement;
-        if (target.classList.contains('cm-gutterElement')) {
-            const lineNo = parseInt(target.innerText, 10);
-            if (!isNaN(lineNo)) {
-              const analysis = analysisLines.find(l => l.lineNumber === lineNo);
-              target.title = analysis ? analysis.analysis : '';
+        const gutterElement = target.closest('.cm-gutterElement');
+        if (gutterElement) {
+            event.stopPropagation();
+            const lineNo = view.state.doc.lineAt(view.posAtDOM(target)).number;
+
+            if (tooltip && tooltip.line === lineNo) {
+                setTooltip(null);
+                return;
+            }
+
+            const analysis = analysisLines.find(l => l.lineNumber === lineNo);
+            if (analysis) {
+                const rect = gutterElement.getBoundingClientRect();
+                setTooltip({
+                    content: analysis.analysis,
+                    top: rect.top,
+                    left: rect.right + 10,
+                    line: lineNo,
+                });
+            } else {
+                setTooltip(null);
             }
         }
     }
-  });
+  }), [analysisLines, tooltip]);
+
+  const extensions = useMemo(() => {
+    const exts: Extension[] = [
+        ...languageExtension,
+        gutterClickHandler,
+        EditorView.lineWrapping,
+    ];
+    if (analysisLines.length > 0) {
+      exts.push(lineAnalysisHighlight(analysisLines));
+    }
+    return exts;
+  }, [analysisLines, languageExtension, gutterClickHandler]);
 
   return (
-    <div className="flex-grow h-full relative">
+    <div className="flex-grow h-full overflow-auto relative code-editor-wrapper">
+      {tooltip && ReactDOM.createPortal(
+        <div 
+            className="analysis-tooltip" 
+            style={{ top: `${tooltip.top}px`, left: `${tooltip.left}px` }}
+            onClick={e => e.stopPropagation()}
+        >
+            {tooltip.content}
+        </div>,
+        document.body
+      )}
       <CodeMirror
         value={code}
-        height="100%"
-        extensions={[...extensions, theme, EditorView.lineWrapping, lineHoverTooltips]}
         onChange={onCodeChange}
+        height="100%"
+        width="100%"
+        style={{
+          fontFamily,
+          fontSize: `${fontSize}px`,
+          lineHeight: `${lineHeight}`,
+        }}
+        extensions={extensions}
+        theme={selectedTheme}
+        basicSetup={{
+          lineNumbers: true,
+          foldGutter: true,
+          highlightActiveLine: true,
+          highlightActiveLineGutter: true,
+          autocompletion: true,
+          bracketMatching: true,
+        }}
       />
     </div>
   );
 };
 
-export default memo(CodeEditor);
+export default CodeEditor;

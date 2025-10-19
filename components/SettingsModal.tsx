@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import type { Language } from '../types';
 
@@ -52,7 +53,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose }) => {
   return (
     <div 
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      className="modal-backdrop"
       onClick={onClose}
       role="dialog"
       aria-modal="true"

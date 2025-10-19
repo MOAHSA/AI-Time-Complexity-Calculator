@@ -1,159 +1,182 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import CodeMirror from '@uiw/react-codemirror';
-import { python } from '@codemirror/lang-python';
-import { java from '@codemirror/lang-java';
-import { cpp } from '@codemirror/lang-cpp';
-import { EditorView } from '@codemirror/view';
-import type { OptimizationHistoryItem, ChatMessage, OptimizationResource, ConcreteLanguage } from '../types';
+import type { OptimizationHistoryItem, ChatMessage, OptimizationResource } from '../types';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import rehypeRaw from 'rehype-raw';
 
 interface OptimizationModalProps {
-  historyItem: OptimizationHistoryItem;
-  onSendMessage: (message: string) => void;
-  isChatLoading: boolean;
+  item: OptimizationHistoryItem;
   onClose: () => void;
+  onContinueChat: (message: string) => void;
 }
 
-const getLanguageExtension = (language: ConcreteLanguage) => {
-    switch (language) {
-      case 'python': return python();
-      case 'java': return java();
-      case 'cpp': return cpp();
-      default: return python();
-    }
+const ResourceLink: React.FC<{ resource: OptimizationResource }> = ({ resource }) => {
+    // Icons for different resource types
+    const icons = {
+        article: '📄',
+        video: '🎬',
+        github: '💻',
+        documentation: '📚',
+        other: '🔗',
+    };
+    return (
+        <a 
+            href={resource.url} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="flex items-center space-x-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-quaternary)] p-2 rounded-md transition-colors"
+        >
+            <span className="text-lg">{icons[resource.type] || '🔗'}</span>
+            <span className="text-[var(--text-secondary)] font-medium truncate" title={resource.title}>{resource.title}</span>
+        </a>
+    );
 };
-
-const ResourceLink: React.FC<{ resource: OptimizationResource }> = ({ resource }) => (
-    <a href={resource.url} target="_blank" rel="noopener noreferrer" className="block p-3 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-quaternary)] rounded-md transition-colors">
-        <p className="font-semibold text-[var(--text-primary)]">{resource.title}</p>
-        <span className="text-xs text-[var(--text-tertiary)] uppercase">{resource.type}</span>
-    </a>
-);
 
 const ChatBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
     const isUser = message.role === 'user';
     return (
-        <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-xl p-3 rounded-lg ${isUser ? 'bg-[var(--bg-interactive)] text-[var(--text-on-interactive)]' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'}`}>
-                <p style={{ whiteSpace: 'pre-wrap' }}>{message.content}</p>
+        <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-xl lg:max-w-2xl px-4 py-2 rounded-lg prose prose-invert prose-sm ${isUser ? 'bg-[var(--bg-interactive)] text-[var(--text-on-interactive)]' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'}`}>
+                <ReactMarkdown
+                    rehypePlugins={[rehypeRaw]}
+                    components={{
+                        code({ node, inline, className, children, ...props }) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            return !inline && match ? (
+                                <SyntaxHighlighter
+                                    style={vscDarkPlus}
+                                    language={match[1]}
+                                    PreTag="div"
+                                    {...props}
+                                >
+                                    {String(children).replace(/\n$/, '')}
+                                </SyntaxHighlighter>
+                            ) : (
+                                <code className={className} {...props}>
+                                    {children}
+                                </code>
+                            );
+                        },
+                    }}
+                >
+                    {message.content}
+                </ReactMarkdown>
             </div>
         </div>
     )
 };
 
 
-const OptimizationModal: React.FC<OptimizationModalProps> = ({ 
-    historyItem, 
-    onSendMessage, 
-    isChatLoading,
-    onClose 
-}) => {
-    const [message, setMessage] = useState('');
-    const chatContainerRef = useRef<HTMLDivElement>(null);
+const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, onContinueChat }) => {
+  const [chatInput, setChatInput] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
-    const languageExtension = getLanguageExtension(historyItem.language);
-    const readOnlyTheme = EditorView.theme({
-        '&': {
-            backgroundColor: 'var(--bg-tertiary)',
-            fontFamily: `'Fira Code', monospace`,
-            fontSize: '14px',
-        },
-        '.cm-content': { color: 'var(--text-secondary)'},
-        '.cm-gutters': {
-            backgroundColor: 'var(--bg-quaternary)',
-            color: 'var(--text-tertiary)',
-            border: 'none'
-        },
-    }, { dark: true });
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
-    useEffect(() => {
-        if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-        }
-    }, [historyItem.chatHistory]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [item.chatHistory]);
 
-    const handleSend = () => {
-        if (message.trim() && !isChatLoading) {
-            onSendMessage(message);
-            setMessage('');
-        }
-    };
-    
+  const handleChatSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (chatInput.trim()) {
+        onContinueChat(chatInput.trim());
+        setChatInput('');
+    }
+  };
+
   return (
-    <div 
-        className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-        onClick={onClose}
-        role="dialog"
-        aria-modal="true"
+    <div
+      className="modal-backdrop"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
     >
-      <div 
-        className="bg-[var(--bg-secondary)] rounded-lg shadow-xl w-full max-w-4xl h-[90vh] m-4 flex flex-col"
+      <div
+        className="bg-[var(--bg-secondary)] rounded-lg shadow-xl w-full max-w-4xl m-4 flex flex-col h-[90vh]"
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
-        <div className="p-4 border-b border-[var(--border-primary)] flex justify-between items-center flex-shrink-0">
-          <h2 className="text-xl font-semibold text-[var(--text-primary)]">Optimization Details</h2>
+        <div className="p-6 border-b border-[var(--border-primary)] flex justify-between items-center flex-shrink-0">
+          <h2 className="text-xl font-semibold text-[var(--text-primary)]">Optimization Suggestion</h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-full text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
-            aria-label="Close"
+            className="p-2 rounded-full text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--bg-secondary)] focus:ring-[var(--ring-color)]"
+            aria-label="Close optimization details"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        
-        <div className="flex-grow flex overflow-hidden">
-            {/* Left side: Original Code and Suggestion */}
-            <div className="w-1/2 p-4 flex flex-col border-r border-[var(--border-primary)] overflow-y-auto">
-                <div>
-                    <h3 className="text-sm font-medium text-[var(--text-tertiary)] mb-2">Original Code</h3>
-                    <div className="rounded-md overflow-hidden border border-[var(--border-secondary)]">
-                        <CodeMirror
-                            value={historyItem.originalCode}
-                            extensions={[languageExtension, readOnlyTheme, EditorView.lineWrapping]}
-                            readOnly={true}
-                        />
-                    </div>
-                </div>
-                <div className="mt-4">
-                    <h3 className="text-sm font-medium text-[var(--text-tertiary)] mb-2">Suggestion</h3>
-                    <div className="p-4 bg-[var(--bg-tertiary)] rounded-md text-[var(--text-secondary)]" style={{ whiteSpace: 'pre-wrap' }}>
-                        {historyItem.result.suggestion}
-                    </div>
-                </div>
-                {historyItem.result.resources.length > 0 && (
-                    <div className="mt-4">
-                        <h3 className="text-sm font-medium text-[var(--text-tertiary)] mb-2">Resources</h3>
-                        <div className="space-y-2">
-                            {historyItem.result.resources.map(res => <ResourceLink key={res.url} resource={res} />)}
-                        </div>
-                    </div>
-                )}
+
+        <div className="flex-grow overflow-y-auto p-6 space-y-6">
+            <div className="prose prose-invert max-w-none text-[var(--text-secondary)]">
+                <ReactMarkdown
+                    rehypePlugins={[rehypeRaw]}
+                    components={{
+                        code({ node, inline, className, children, ...props }) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            return !inline && match ? (
+                                <SyntaxHighlighter
+                                    style={vscDarkPlus}
+                                    language={match[1]}
+                                    PreTag="div"
+                                    {...props}
+                                >
+                                    {String(children).replace(/\n$/, '')}
+                                </SyntaxHighlighter>
+                            ) : (
+                                <code className={`${className || ''} bg-[var(--bg-tertiary)] text-[var(--text-primary)] px-1 py-0.5 rounded-sm`} {...props}>
+                                    {children}
+                                </code>
+                            );
+                        },
+                    }}
+                >
+                    {item.result.suggestion}
+                </ReactMarkdown>
             </div>
 
-            {/* Right side: Chat */}
-            <div className="w-1/2 p-4 flex flex-col">
-                <h3 className="text-sm font-medium text-[var(--text-tertiary)] mb-2 flex-shrink-0">Discuss with AI</h3>
-                <div ref={chatContainerRef} className="flex-grow space-y-4 overflow-y-auto pr-2">
-                    {historyItem.chatHistory.map((msg, index) => <ChatBubble key={index} message={msg} />)}
-                    {isChatLoading && <ChatBubble message={{role: 'model', content: 'Thinking...'}} />}
+            {item.result.resources && item.result.resources.length > 0 && (
+                <div>
+                    <h3 className="text-lg font-semibold mb-2 text-[var(--text-primary)]">Learning Resources</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {item.result.resources.map(res => <ResourceLink key={res.url} resource={res} />)}
+                    </div>
                 </div>
-                <div className="mt-4 flex space-x-2 flex-shrink-0">
-                    <input
-                        type="text"
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                        placeholder="Ask a follow-up question..."
-                        className="flex-grow bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-md p-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--ring-color)] focus:border-[var(--ring-color)]"
-                        disabled={isChatLoading}
-                    />
-                    <button onClick={handleSend} disabled={isChatLoading || !message.trim()} className="bg-[var(--bg-interactive)] hover:bg-[var(--bg-interactive-hover)] disabled:bg-[var(--bg-interactive-disabled)] disabled:cursor-not-allowed text-[var(--text-on-interactive)] font-semibold py-2 px-4 rounded-md">
-                        Send
-                    </button>
-                </div>
+            )}
+            
+            {(item.chatHistory.length > 0) && <div className="border-t border-[var(--border-primary)]/50 pt-4"></div>}
+
+            <div className="space-y-4">
+                {item.chatHistory.map((msg, index) => <ChatBubble key={index} message={msg} />)}
+                 <div ref={chatEndRef} />
             </div>
+
+        </div>
+
+        <div className="p-4 border-t border-[var(--border-primary)] flex-shrink-0">
+          <form onSubmit={handleChatSubmit} className="flex space-x-2">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              placeholder="Ask a follow-up question..."
+              className="flex-grow bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-md p-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--ring-color)] focus:border-[var(--ring-color)]"
+              aria-label="Chat input"
+            />
+            <button
+              type="submit"
+              className="bg-[var(--bg-interactive)] hover:bg-[var(--bg-interactive-hover)] disabled:bg-[var(--bg-interactive-disabled)] text-[var(--text-on-interactive)] font-semibold py-2 px-4 rounded-md transition-colors"
+              disabled={!chatInput.trim()}
+              aria-label="Send message"
+            >
+              Send
+            </button>
+          </form>
         </div>
       </div>
     </div>

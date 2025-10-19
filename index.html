@@ -4,193 +4,212 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Time Complexity Calculator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&family=Roboto+Mono:ital,wght@0,400;0,700;1,400&family=Source+Code+Pro:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/themes/prism-tomorrow.min.css" integrity="sha512-vswe+cgvic/XBoF1OcM/TeJ2FW0OofqAVdCZiEYkd6dwGXthvkSFWOoGGJgS2CWZ08OjdDjZwrO7YXdWE8rM/w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
-      /* --- Tooltip --- */
-      .analysis-tooltip-portal {
-        position: fixed;
-        transform: translateY(-50%);
-        background-color: var(--tooltip-bg, #1f2937);
-        color: var(--tooltip-text, #d1d5db);
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        z-index: 100;
-        white-space: nowrap;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        border: 1px solid var(--tooltip-border, #374151);
-        pointer-events: none;
-        font-family: sans-serif;
-        font-size: 14px;
-        line-height: 1.5;
-      }
-      .analysis-tooltip-portal::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        right: 100%;
-        transform: translateY(-50%);
-        border-width: 6px;
-        border-style: solid;
-        border-color: transparent var(--tooltip-bg, #1f2937) transparent transparent;
-      }
+        :root {
+            --font-sans: 'Inter', sans-serif;
+        }
 
-      /* --- Editor Sync --- */
-      .code-editor-sync {
-        margin: 0; padding: 1rem; border: 0;
-        font-family: var(--font-family, monospace);
-        font-size: var(--font-size, 16px);
-        line-height: var(--line-height, 1.5);
-        tab-size: 4; -moz-tab-size: 4;
-        white-space: pre; word-wrap: normal;
-      }
-      /* Makes the textarea transparent with a visible cursor */
-      .code-editor-textarea {
-        color: transparent;
-        background: transparent;
-        caret-color: var(--caret-color);
-      }
+        /* Modern Theme (Default) */
+        [data-theme='modern'] {
+            --bg-primary: #1E1E1E;
+            --bg-secondary: #252526;
+            --bg-tertiary: #333333;
+            --bg-quaternary: #3C3C3C;
+            --bg-interactive: #007ACC;
+            --bg-interactive-hover: #005A9E;
+            --bg-interactive-disabled: #3C3C3C;
+            --text-primary: #CCCCCC;
+            --text-secondary: #BBBBBB;
+            --text-tertiary: #888888;
+            --text-on-interactive: #FFFFFF;
+            --border-primary: #3C3C3C;
+            --border-secondary: #505050;
+            --ring-color: #007ACC;
+            --error-bg: #B00020;
+        }
+        
+        /* Neon Theme */
+        [data-theme='neon'] {
+            --bg-primary: #1A0B2E;
+            --bg-secondary: #2A1149;
+            --bg-tertiary: #3C1964;
+            --bg-quaternary: #4F2281;
+            --bg-interactive: #FF00FF;
+            --bg-interactive-hover: #CC00CC;
+            --bg-interactive-disabled: #4F2281;
+            --text-primary: #E0D2F7;
+            --text-secondary: #C4B0E8;
+            --text-tertiary: #9A7ACC;
+            --text-on-interactive: #FFFFFF;
+            --border-primary: #4F2281;
+            --border-secondary: #6A35A3;
+            --ring-color: #FF00FF;
+            --error-bg: #E53E3E;
+        }
 
-      /* --- History Sidebar --- */
-      .history-sidebar {
-        transition: transform 0.3s ease-in-out;
-        transform: translateX(100%);
-      }
-      .history-sidebar.visible {
-        transform: translateX(0);
-      }
+        /* Light Theme */
+        [data-theme='light'] {
+            --bg-primary: #FFFFFF;
+            --bg-secondary: #F3F4F6;
+            --bg-tertiary: #E5E7EB;
+            --bg-quaternary: #D1D5DB;
+            --bg-interactive: #10B981;
+            --bg-interactive-hover: #059669;
+            --bg-interactive-disabled: #D1D5DB;
+            --text-primary: #1F2937;
+            --text-secondary: #374151;
+            --text-tertiary: #6B7280;
+            --text-on-interactive: #FFFFFF;
+            --border-primary: #D1D5DB;
+            --border-secondary: #9CA3AF;
+            --ring-color: #10B981;
+            --error-bg: #EF4444;
+        }
 
-      /* --- Chat Bubbles --- */
-      .chat-bubble {
-        padding: 0.75rem 1rem;
-        border-radius: 0.75rem;
-        max-width: 85%;
-        word-wrap: break-word;
-      }
-      .chat-bubble-user {
-        background-color: var(--bg-interactive);
-        color: var(--text-on-interactive);
-        border-bottom-right-radius: 0.125rem;
-        align-self: flex-end;
-      }
-      .chat-bubble-model {
-        background-color: var(--bg-tertiary);
-        color: var(--text-secondary);
-        border-bottom-left-radius: 0.125rem;
-        align-self: flex-start;
-      }
-      
-      /* --- Theme Definitions --- */
-      :root, .theme-modern {
-        --bg-primary: #111827;
-        --bg-secondary: #1f2937;
-        --bg-tertiary: #374151;
-        --bg-quaternary: #4b5563;
-        --bg-interactive: #4f46e5;
-        --bg-interactive-hover: #4338ca;
-        --bg-interactive-disabled: #312e81;
-        --text-primary: #f3f4f6;
-        --text-secondary: #d1d5db;
-        --text-tertiary: #9ca3af;
-        --text-on-interactive: #ffffff;
-        --border-primary: #374151;
-        --border-secondary: #4b5563;
-        --caret-color: #818cf8;
-        --error-bg: #b91c1c;
-        --tooltip-bg: #1f2937;
-        --tooltip-text: #d1d5db;
-        --tooltip-border: #374151;
-        --ring-color: #6366f1;
-      }
+        /* Ocean Theme */
+        [data-theme='ocean'] {
+            --bg-primary: #0F172A;
+            --bg-secondary: #1E293B;
+            --bg-tertiary: #334155;
+            --bg-quaternary: #475569;
+            --bg-interactive: #38BDF8;
+            --bg-interactive-hover: #0EA5E9;
+            --bg-interactive-disabled: #475569;
+            --text-primary: #E2E8F0;
+            --text-secondary: #CBD5E1;
+            --text-tertiary: #94A3B8;
+            --text-on-interactive: #0F172A;
+            --border-primary: #334155;
+            --border-secondary: #64748B;
+            --ring-color: #38BDF8;
+            --error-bg: #F43F5E;
+        }
 
-      .theme-neon {
-        --bg-primary: #0d0221;
-        --bg-secondary: #261447;
-        --bg-tertiary: #3b2764;
-        --bg-quaternary: #5c2799;
-        --bg-interactive: #ff3864;
-        --bg-interactive-hover: #ff0040;
-        --bg-interactive-disabled: #8d1d36;
-        --text-primary: #f0f0f0;
-        --text-secondary: #c0c0c0;
-        --text-tertiary: #9d8df1;
-        --text-on-interactive: #ffffff;
-        --border-primary: #5c2799;
-        --border-secondary: #7b43d3;
-        --caret-color: #00f5d4;
-        --error-bg: #ff3864;
-        --tooltip-bg: #261447;
-        --tooltip-text: #f0f0f0;
-        --tooltip-border: #5c2799;
-        --ring-color: #ff3864;
-      }
-      
-      .theme-light {
-        --bg-primary: #f8f9fa;
-        --bg-secondary: #ffffff;
-        --bg-tertiary: #e9ecef;
-        --bg-quaternary: #dee2e6;
-        --bg-interactive: #198754;
-        --bg-interactive-hover: #157347;
-        --bg-interactive-disabled: #a3d9a5;
-        --text-primary: #212529;
-        --text-secondary: #495057;
-        --text-tertiary: #6c757d;
-        --text-on-interactive: #ffffff;
-        --border-primary: #dee2e6;
-        --border-secondary: #ced4da;
-        --caret-color: #198754;
-        --error-bg: #dc3545;
-        --tooltip-bg: #212529;
-        --tooltip-text: #f8f9fa;
-        --tooltip-border: #495057;
-        --ring-color: #198754;
-      }
+        body {
+            font-family: var(--font-sans);
+            margin: 0;
+            overflow: hidden; /* Prevent body scroll */
+        }
+        
+        .code-editor-wrapper .cm-editor {
+            height: 100%;
+            width: 100%;
+        }
 
-      .theme-ocean {
-        --bg-primary: #0a192f;
-        --bg-secondary: #172a46;
-        --bg-tertiary: #304a6d;
-        --bg-quaternary: #476999;
-        --bg-interactive: #64ffda;
-        --bg-interactive-hover: #52d1b8;
-        --bg-interactive-disabled: #2d6e60;
-        --text-primary: #ccd6f6;
-        --text-secondary: #a8b2d1;
-        --text-tertiary: #8892b0;
-        --text-on-interactive: #0a192f;
-        --border-primary: #304a6d;
-        --border-secondary: #476999;
-        --caret-color: #64ffda;
-        --error-bg: #ef4444;
-        --tooltip-bg: #172a46;
-        --tooltip-text: #ccd6f6;
-        --tooltip-border: #304a6d;
-        --ring-color: #64ffda;
-      }
+        .cm-line-highlighted {
+            background-color: rgba(135, 131, 120, 0.15);
+        }
+        .cm-gutters {
+          cursor: pointer;
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+
+        .history-sidebar {
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(100%);
+        }
+        .history-sidebar.visible {
+            transform: translateX(0);
+        }
+        
+        input[type="range"] {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 100%;
+          cursor: pointer;
+          outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+          background-color: var(--bg-tertiary);
+          height: 0.5rem;
+          border-radius: 0.25rem;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          margin-top: -4px;
+          background-color: var(--bg-interactive);
+          height: 1.25rem;
+          width: 1.25rem;
+          border-radius: 50%;
+          border: 2px solid var(--bg-secondary);
+        }
+
+        .prose {
+          --tw-prose-body: var(--text-secondary);
+          --tw-prose-headings: var(--text-primary);
+          --tw-prose-links: var(--text-secondary);
+          --tw-prose-code: var(--text-primary);
+          --tw-prose-pre-code: var(--text-primary);
+          --tw-prose-pre-bg: var(--bg-tertiary);
+          --tw-prose-invert-body: var(--text-secondary);
+          --tw-prose-invert-headings: var(--text-primary);
+          --tw-prose-invert-links: var(--text-secondary);
+          --tw-prose-invert-code: var(--text-primary);
+          --tw-prose-invert-pre-code: var(--text-primary);
+          --tw-prose-invert-pre-bg: var(--bg-tertiary);
+        }
+        
+        .analysis-tooltip {
+            position: fixed;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            z-index: 100;
+            font-size: 0.875rem;
+            pointer-events: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
     </style>
     <script type="importmap">
-{
-  "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0",
-    "prismjs": "https://aistudiocdn.com/prismjs@^1.30.0",
-    "prismjs/": "https://aistudiocdn.com/prismjs@^1.30.0/",
-    "@uiw/react-codemirror": "https://aistudiocdn.com/@uiw/react-codemirror@^4.25.2",
-    "@codemirror/state": "https://aistudiocdn.com/@codemirror/state@^6.5.2",
-    "@codemirror/view": "https://aistudiocdn.com/@codemirror/view@^6.38.6",
-    "@codemirror/lang-python": "https://aistudiocdn.com/@codemirror/lang-python@^6.2.1",
-    "@codemirror/lang-java": "https://aistudiocdn.com/@codemirror/lang-java@^6.0.2",
-    "@codemirror/lang-cpp": "https://aistudiocdn.com/@codemirror/lang-cpp@^6.0.3"
-  }
-}
-</script>
+    {
+      "imports": {
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0",
+        "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
+        "@uiw/react-codemirror": "https://aistudiocdn.com/@uiw/react-codemirror@^4.25.2",
+        "@codemirror/state": "https://aistudiocdn.com/@codemirror/state@^6.5.2",
+        "@codemirror/view": "https://aistudiocdn.com/@codemirror/view@^6.38.6",
+        "@codemirror/lang-python": "https://aistudiocdn.com/@codemirror/lang-python@^6.2.1",
+        "@codemirror/lang-java": "https://aistudiocdn.com/@codemirror/lang-java@^6.0.2",
+        "@codemirror/lang-cpp": "https://aistudiocdn.com/@codemirror/lang-cpp@^6.0.3",
+        "@uiw/codemirror-theme-vscode": "https://aistudiocdn.com/@uiw/codemirror-theme-vscode@^4.25.2",
+        "@uiw/codemirror-theme-solarized": "https://aistudiocdn.com/@uiw/codemirror-theme-solarized@^4.25.2",
+        "@uiw/codemirror-theme-nord": "https://aistudiocdn.com/@uiw/codemirror-theme-nord@^4.25.2",
+        "@uiw/codemirror-theme-okaidia": "https://aistudiocdn.com/@uiw/codemirror-theme-okaidia@^4.25.2",
+        "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
+        "react-syntax-highlighter": "https://aistudiocdn.com/react-syntax-highlighter@^15.6.6",
+        "react-syntax-highlighter/": "https://aistudiocdn.com/react-syntax-highlighter@^15.6.6/",
+        "rehype-raw": "https://aistudiocdn.com/rehype-raw@^7.0.0"
+      }
+    }
+    </script>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root" class="h-screen w-screen"></div>
     <script type="module" src="/index.tsx"></script>
 </body>
 </html>

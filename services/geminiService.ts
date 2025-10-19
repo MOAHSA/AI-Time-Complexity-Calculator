@@ -1,146 +1,192 @@
-
-import { GoogleGenAI, Type } from "@google/genai";
-import type { 
-    Language, 
-    ConcreteLanguage, 
-    AnalysisResult, 
-    OptimizationResult,
-    ChatMessage
+import { GoogleGenAI, Type } from '@google/genai';
+import type {
+  AnalysisResult,
+  OptimizationResult,
+  Language,
+  ConcreteLanguage,
+  ChatMessage,
 } from '../types';
 
-// The API key is sourced from the environment variable as per the guidelines.
+// According to guidelines, API key is in process.env.API_KEY
+// and we should initialize with it.
+// FIX: Initialize GoogleGenAI with apiKey from environment variables.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const model = 'gemini-2.5-flash';
-
-// Utility function to parse JSON response from the model
-const parseJsonResponse = <T>(text: string, typeName: string): T => {
+export const getLanguage = async (code: string, languageHint: Language): Promise<ConcreteLanguage> => {
+    if (languageHint !== 'auto') {
+        return languageHint;
+    }
+    
+    // FIX: Use gemini-2.5-flash for simple classification tasks.
+    const model = 'gemini-2.5-flash';
+    
     try {
-        // The model may wrap JSON in ```json ... ```, so we clean it.
-        const cleanedText = text.replace(/^```json\s*|```\s*$/g, '');
-        return JSON.parse(cleanedText);
+        // FIX: Call generateContent to get model response.
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: `Detect the programming language of the following code. Respond with only one of 'python', 'java', or 'cpp'.\n\nCode:\n\`\`\`\n${code}\n\`\`\``,
+            config: {
+                temperature: 0,
+            }
+        });
+
+        // FIX: Extract text from response using the .text property.
+        const lang = response.text.trim().toLowerCase();
+        if (lang === 'python' || lang === 'java' || lang === 'cpp') {
+            return lang;
+        }
+        // Fallback or error
+        console.warn('Language detection failed, falling back to python. Response:', lang);
+        return 'python';
     } catch (error) {
-        console.error(`Failed to parse ${typeName} JSON:`, text, error);
-        throw new Error(`The model returned an invalid ${typeName} format.`);
+        console.error('Error detecting language:', error);
+        // Fallback in case of API error
+        return 'python';
     }
 };
 
-export const getLanguage = async (code: string, language: Language): Promise<ConcreteLanguage> => {
-    if (language !== 'auto') {
-        return language;
-    }
-
-    const response = await ai.models.generateContent({
-        model,
-        contents: `Detect the programming language of the following code. Respond with only one of: 'python', 'java', or 'cpp'.\n\n\`\`\`\n${code}\n\`\`\``,
-    });
+export const analyzeCode = async (code: string, language: ConcreteLanguage): Promise<AnalysisResult> => {
+    // FIX: Use gemini-2.5-pro for complex reasoning tasks like code analysis.
+    const model = 'gemini-2.5-pro';
     
-    const lang = response.text.trim().toLowerCase();
+    // FIX: Define response schema for structured JSON output.
+    const analysisSchema = {
+        type: Type.OBJECT,
+        properties: {
+            bigO: {
+                type: Type.STRING,
+                description: 'The overall time complexity of the code in Big O notation (e.g., "O(n)", "O(n^2)", "O(log n)").'
+            },
+            lines: {
+                type: Type.ARRAY,
+                description: 'An array of objects, where each object represents a line of code that contributes to the complexity.',
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        lineNumber: {
+                            type: Type.INTEGER,
+                            description: 'The 1-based line number in the code.'
+                        },
+                        analysis: {
+                            type: Type.STRING,
+                            description: 'A brief explanation of how this line contributes to the overall time complexity, including execution count if applicable.'
+                        }
+                    },
+                    required: ['lineNumber', 'analysis']
+                }
+            }
+        },
+        required: ['bigO', 'lines']
+    };
 
-    if (lang === 'python' || lang === 'java' || lang === 'cpp') {
-        return lang;
+    const prompt = `
+Analyze the time complexity of the following ${language} code.
+
+Provide the following:
+1.  The overall time complexity in Big O notation.
+2.  A line-by-line analysis for the most significant lines of code that contribute to this complexity. For each of these lines, provide the line number and a brief explanation of its contribution (e.g., "This loop runs n times").
+
+Your response must be in JSON format matching the provided schema.
+
+Code:
+\`\`\`${language}
+${code}
+\`\`\`
+`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: analysisSchema,
+            }
+        });
+
+        const jsonString = response.text;
+        return JSON.parse(jsonString) as AnalysisResult;
+
+    } catch (error) {
+        console.error('Error analyzing code:', error);
+        throw new Error('Failed to analyze code with Gemini API.');
     }
-
-    // Default if language is not supported/detected
-    console.warn(`Could not detect language, defaulting to python. Detected: ${lang}`);
-    return 'python';
-};
-
-export const analyzeCode = async (code: string, lang: ConcreteLanguage): Promise<AnalysisResult> => {
-    const response = await ai.models.generateContent({
-        model,
-        contents: `Analyze the time complexity of the following ${lang} code. Provide the overall Big O notation and a line-by-line analysis of execution counts. For each line, explain why it's executed that many times in relation to the input size (e.g., "1", "N", "N^2"). Respond in JSON format.
-        
-        Example JSON format:
-        {
-          "bigO": "O(N)",
-          "lines": [
-            { "lineNumber": 1, "analysis": "Executed 1 time." },
-            { "lineNumber": 2, "analysis": "Executed N times, where N is the length of the input array." }
-          ]
-        }
-        
-        Code to analyze:
-        \`\`\`${lang}
-        ${code}
-        \`\`\``,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    bigO: { type: Type.STRING, description: "The overall Big O time complexity." },
-                    lines: {
-                        type: Type.ARRAY,
-                        description: "A line-by-line analysis.",
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                lineNumber: { type: Type.INTEGER, description: "The 1-based line number." },
-                                analysis: { type: Type.STRING, description: "The complexity analysis for this line." }
-                            },
-                            required: ['lineNumber', 'analysis']
-                        }
-                    }
-                },
-                required: ['bigO', 'lines']
-            }
-        }
-    });
-    
-    return parseJsonResponse<AnalysisResult>(response.text, 'AnalysisResult');
 };
 
 
-export const optimizeCode = async (code: string, lang: ConcreteLanguage): Promise<OptimizationResult> => {
-    const response = await ai.models.generateContent({
-        model,
-        contents: `Analyze the following ${lang} code for potential performance optimizations.
-        1. Determine if the code is already optimal for its task or if improvements can be made.
-        2. Provide a clear, concise, and actionable suggestion for optimization. If it's already optimal, state that.
-        3. Provide a list of 2-3 relevant learning resources (articles, videos, documentation).
-        
-        Respond in JSON format.
+export const optimizeCode = async (code: string, language: ConcreteLanguage): Promise<OptimizationResult> => {
+    const model = 'gemini-2.5-pro';
 
-        Code to analyze:
-        \`\`\`${lang}
-        ${code}
-        \`\`\``,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    optimized: { type: Type.BOOLEAN, description: "True if the code is considered optimal, false otherwise." },
-                    suggestion: { type: Type.STRING, description: "The optimization suggestion or a statement that it's optimal." },
-                    resources: {
-                        type: Type.ARRAY,
-                        description: "A list of relevant learning resources.",
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                title: { type: Type.STRING },
-                                url: { type: Type.STRING },
-                                type: { type: Type.STRING, enum: ['article', 'video', 'github', 'documentation', 'other'] }
-                            },
-                            required: ['title', 'url', 'type']
+    const optimizationSchema = {
+        type: Type.OBJECT,
+        properties: {
+            optimized: {
+                type: Type.BOOLEAN,
+                description: 'A boolean indicating if the provided code is already considered optimal for its task. Set to true if no significant improvements can be made.'
+            },
+            suggestion: {
+                type: Type.STRING,
+                description: 'A detailed, step-by-step explanation of how to optimize the code. If the code is already optimal, provide a brief explanation of why. The explanation should be in Markdown format.'
+            },
+            resources: {
+                type: Type.ARRAY,
+                description: 'An array of up to 3 relevant learning resources (articles, videos, documentation) that help understand the optimization concepts.',
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        title: { type: Type.STRING },
+                        url: { type: Type.STRING },
+                        type: { 
+                            type: Type.STRING,
+                            enum: ['article', 'video', 'github', 'documentation', 'other']
                         }
-                    }
-                },
-                required: ['optimized', 'suggestion', 'resources']
+                    },
+                    required: ['title', 'url', 'type']
+                }
             }
-        }
-    });
+        },
+        required: ['optimized', 'suggestion', 'resources']
+    };
 
-    return parseJsonResponse<OptimizationResult>(response.text, 'OptimizationResult');
+    const prompt = `
+Analyze and suggest optimizations for the following ${language} code to improve its time complexity or performance.
+
+Your response must be a JSON object that adheres to the provided schema.
+- If the code is already optimal, set "optimized" to true and explain why in the "suggestion" field.
+- If it can be improved, set "optimized" to false, provide a detailed "suggestion" in Markdown format on how to improve it (you can include code snippets using Markdown).
+- Provide up to 3 relevant "resources" for further learning.
+
+Code:
+\`\`\`${language}
+${code}
+\`\`\`
+`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: optimizationSchema,
+            }
+        });
+
+        const jsonString = response.text;
+        return JSON.parse(jsonString) as OptimizationResult;
+
+    } catch (error) {
+        console.error('Error optimizing code:', error);
+        throw new Error('Failed to get optimization from Gemini API.');
+    }
 };
 
 interface ContinueChatParams {
-    originalCode: string;
-    language: ConcreteLanguage;
-    optimizationSuggestion: string;
-    history: ChatMessage[];
-    newUserMessage: string;
+  originalCode: string;
+  language: ConcreteLanguage;
+  optimizationSuggestion: string;
+  history: ChatMessage[];
+  newUserMessage: string;
 }
 
 export const continueChat = async ({
@@ -150,29 +196,40 @@ export const continueChat = async ({
     history,
     newUserMessage
 }: ContinueChatParams): Promise<string> => {
-    
-    const formattedHistory = history.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-    
-    const response = await ai.models.generateContent({
-        model,
-        contents: newUserMessage,
-        config: {
-            systemInstruction: `You are an expert code optimization assistant. A user has received an optimization suggestion for their code and is asking a follow-up question.
-            
-            Original Code (${language}):
-            \`\`\`${language}
-            ${originalCode}
-            \`\`\`
-            
-            Initial Suggestion:
-            ${optimizationSuggestion}
-            
-            Conversation History:
-            ${formattedHistory}
-            
-            Keep your answers concise, helpful, and directly related to the code and optimization suggestion. Address the user's latest message.`
-        }
-    });
+    const model = 'gemini-2.5-pro';
 
-    return response.text;
+    let prompt = `
+You are an expert programmer helping a user understand a code optimization.
+
+Here is the context:
+Original ${language} code:
+\`\`\`${language}
+${originalCode}
+\`\`\`
+
+Your initial optimization suggestion was:
+---
+${optimizationSuggestion}
+---
+
+Now, continue the conversation. Here is the chat history so far (user messages are prefixed with "User:", your responses are prefixed with "AI:"):
+${history.map(msg => `${msg.role === 'user' ? 'User' : 'AI'}: ${msg.content}`).join('\n')}
+
+The user has a new question:
+User: ${newUserMessage}
+
+Your task is to provide a helpful and concise answer to the user's new question, keeping the full context in mind. Do not repeat the original suggestion unless asked.
+AI:`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+        });
+
+        return response.text;
+    } catch (error) {
+        console.error('Error continuing chat:', error);
+        throw new Error('Failed to get chat response from Gemini API.');
+    }
 };

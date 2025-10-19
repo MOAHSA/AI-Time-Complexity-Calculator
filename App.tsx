@@ -1,225 +1,297 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import CodeEditor from './components/CodeEditor';
 import StatusBar from './components/StatusBar';
 import SettingsModal from './components/SettingsModal';
 import OptimizationModal from './components/OptimizationModal';
-import HistorySidebar from './components/HistorySidebar';
 import HelpTour from './components/HelpTour';
+import HistorySidebar from './components/HistorySidebar';
 import { analyzeCode, optimizeCode, getLanguage, continueChat } from './services/geminiService';
-import type { OptimizationResult, Language, ConcreteLanguage, LineAnalysis, OptimizationHistoryItem } from './types';
+import type {
+  AnalysisResult,
+  ChatMessage,
+  ConcreteLanguage,
+  Language,
+  OptimizationHistoryItem,
+  OptimizationResult,
+} from './types';
 
-const defaultCode = `def find_sum(numbers):
-    total = 0
-    for number in numbers:
-        total += number
-    return total
+// Default code examples
+const placeholderCode = {
+  python: `def find_duplicates(arr):
+    duplicates = []
+    for i in range(len(arr)):
+        for j in range(i + 1, len(arr)):
+            if arr[i] == arr[j] and arr[i] not in duplicates:
+                duplicates.append(arr[i])
+    return duplicates`,
+  java: `import java.util.ArrayList;
+import java.util.List;
 
-# Example usage:
-my_list = [1, 2, 3, 4, 5]
-print(find_sum(my_list))`;
-
-function App() {
-  const [code, setCode] = useState<string>(() => localStorage.getItem('code') || defaultCode);
-  const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('language') as Language) || 'auto');
-  const [detectedLanguage, setDetectedLanguage] = useState<ConcreteLanguage | null>(null);
-  
-  const [bigO, setBigO] = useState<string | null>(null);
-  const [analysisLines, setAnalysisLines] = useState<LineAnalysis[]>([]);
-  
-  const [optimizationHistory, setOptimizationHistory] = useState<OptimizationHistoryItem[]>(() => JSON.parse(localStorage.getItem('optimizationHistory') || '[]'));
-  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
-
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isChatLoading, setIsChatLoading] = useState<boolean>(false);
-  
-  // Modal states
-  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [isOptimizationOpen, setIsOptimizationOpen] = useState<boolean>(false);
-  const [isHelpOpen, setIsHelpOpen] = useState<boolean>(() => !localStorage.getItem('hasSeenHelp'));
-  const [isHistoryVisible, setIsHistoryVisible] = useState<boolean>(false);
-
-  // Editor settings
-  const [theme, setTheme] = useState<string>(() => localStorage.getItem('theme') || 'modern');
-  const [fontFamily, setFontFamily] = useState<string>(() => localStorage.getItem('fontFamily') || `'Fira Code', monospace`);
-  const [fontSize, setFontSize] = useState<number>(() => Number(localStorage.getItem('fontSize')) || 16);
-  const [lineHeight, setLineHeight] = useState<number>(() => Number(localStorage.getItem('lineHeight')) || 1.6);
-  
-  // Save settings to localStorage
-  useEffect(() => { localStorage.setItem('code', code); }, [code]);
-  useEffect(() => { localStorage.setItem('language', language); }, [language]);
-  useEffect(() => {
-    document.documentElement.className = `theme-${theme}`;
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-  useEffect(() => { localStorage.setItem('fontFamily', fontFamily); }, [fontFamily]);
-  useEffect(() => { localStorage.setItem('fontSize', String(fontSize)); }, [fontSize]);
-  useEffect(() => { localStorage.setItem('lineHeight', String(lineHeight)); }, [lineHeight]);
-  useEffect(() => { localStorage.setItem('optimizationHistory', JSON.stringify(optimizationHistory)); }, [optimizationHistory]);
-
-  const handleCodeChange = (newCode: string) => {
-    setCode(newCode);
-    setBigO(null);
-    setAnalysisLines([]);
-  };
-  
-  const handleAnalyze = async () => {
-    if (isLoading || !code.trim()) return;
-    setIsLoading(true);
-    setBigO(null);
-    setAnalysisLines([]);
-
-    try {
-      const lang = await getLanguage(code, language);
-      setDetectedLanguage(lang);
-      const result = await analyzeCode(code, lang);
-      setBigO(result.bigO);
-      setAnalysisLines(result.lines);
-    } catch (error) {
-      console.error('Analysis failed:', error);
-      setBigO('Error: Analysis failed');
-    } finally {
-      setIsLoading(false);
+public class DuplicateFinder {
+    public List<Integer> findDuplicates(int[] arr) {
+        List<Integer> duplicates = new ArrayList<>();
+        for (int i = 0; i < arr.length; i++) {
+            for (int j = i + 1; j < arr.length; j++) {
+                if (arr[i] == arr[j] && !duplicates.contains(arr[i])) {
+                    duplicates.add(arr[i]);
+                }
+            }
+        }
+        return duplicates;
     }
-  };
+}`,
+  cpp: `#include <iostream>
+#include <vector>
+#include <algorithm>
 
-  const handleOptimize = async () => {
-    if (isLoading || !code.trim()) return;
-    setIsLoading(true);
-
-    try {
-      const lang = detectedLanguage || (await getLanguage(code, language));
-      if (!detectedLanguage) setDetectedLanguage(lang);
-      
-      const result: OptimizationResult = await optimizeCode(code, lang);
-      
-      const newHistoryItem: OptimizationHistoryItem = {
-        id: `opt-${Date.now()}`,
-        timestamp: Date.now(),
-        originalCode: code,
-        language: lang,
-        result,
-        chatHistory: [],
-      };
-
-      setOptimizationHistory(prev => [newHistoryItem, ...prev]);
-      setActiveHistoryId(newHistoryItem.id);
-      setIsOptimizationOpen(true);
-    } catch (error) {
-      console.error('Optimization failed:', error);
-    } finally {
-      setIsLoading(false);
+std::vector<int> findDuplicates(std::vector<int> arr) {
+    std::vector<int> duplicates;
+    for (size_t i = 0; i < arr.size(); ++i) {
+        for (size_t j = i + 1; j < arr.size(); ++j) {
+            if (arr[i] == arr[j]) {
+                if (std::find(duplicates.begin(), duplicates.end(), arr[i]) == duplicates.end()) {
+                    duplicates.push_back(arr[i]);
+                }
+            }
+        }
     }
-  };
+    return duplicates;
+}`,
+};
 
-  const handleSendMessage = async (message: string) => {
-    if (!activeHistoryId || isChatLoading) return;
-    setIsChatLoading(true);
-
-    const currentItemIndex = optimizationHistory.findIndex(item => item.id === activeHistoryId);
-    if (currentItemIndex === -1) {
-        setIsChatLoading(false);
-        return;
-    }
-    const currentItem = optimizationHistory[currentItemIndex];
-    const updatedChatHistory = [...currentItem.chatHistory, { role: 'user' as const, content: message }];
+const App: React.FC = () => {
+    // State management
+    const [code, setCode] = useState<string>(placeholderCode.python);
+    const [language, setLanguage] = useState<Language>('auto');
+    const [detectedLanguage, setDetectedLanguage] = useState<ConcreteLanguage | null>('python');
+    const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
     
-    // Optimistically update UI with user message
-    const updatedHistory = optimizationHistory.map(item => item.id === activeHistoryId ? {...item, chatHistory: updatedChatHistory} : item);
-    setOptimizationHistory(updatedHistory);
+    // UI State
+    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+    const [isOptimizationModalOpen, setIsOptimizationModalOpen] = useState<boolean>(false);
+    const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
+    const [isHistorySidebarOpen, setIsHistorySidebarOpen] = useState<boolean>(false);
     
-    try {
-      const modelResponse = await continueChat({
-          originalCode: currentItem.originalCode,
-          language: currentItem.language,
-          optimizationSuggestion: currentItem.result.suggestion,
-          history: currentItem.chatHistory, // send history *before* user message
-          newUserMessage: message,
-      });
+    // Editor Appearance State
+    const [theme, setTheme] = useState<string>(() => localStorage.getItem('editorTheme') || 'modern');
+    const [fontFamily, setFontFamily] = useState<string>(() => localStorage.getItem('editorFontFamily') || `'Fira Code', monospace`);
+    const [fontSize, setFontSize] = useState<number>(() => parseInt(localStorage.getItem('editorFontSize') || '16', 10));
+    const [lineHeight, setLineHeight] = useState<number>(() => parseFloat(localStorage.getItem('editorLineHeight') || '1.5'));
+    
+    // History State
+    const [history, setHistory] = useState<OptimizationHistoryItem[]>(() => {
+        try {
+            const savedHistory = localStorage.getItem('optimizationHistory');
+            return savedHistory ? JSON.parse(savedHistory) : [];
+        } catch {
+            return [];
+        }
+    });
+    const [activeHistoryItem, setActiveHistoryItem] = useState<OptimizationHistoryItem | null>(null);
 
-      const finalChatHistory = [...updatedChatHistory, { role: 'model' as const, content: modelResponse }];
-      const finalHistory = optimizationHistory.map(item => item.id === activeHistoryId ? {...item, chatHistory: finalChatHistory} : item);
-      setOptimizationHistory(finalHistory);
-    } catch (error) {
-      console.error("Chat error:", error);
-      const errorHistory = [...updatedChatHistory, { role: 'model' as const, content: 'Sorry, I encountered an error. Please try again.' }];
-      const errorFinalHistory = optimizationHistory.map(item => item.id === activeHistoryId ? {...item, chatHistory: errorHistory} : item);
-      setOptimizationHistory(errorFinalHistory);
-    } finally {
-      setIsChatLoading(false);
-    }
-  };
+    // Save settings to localStorage
+    useEffect(() => {
+        localStorage.setItem('editorTheme', theme);
+        localStorage.setItem('editorFontFamily', fontFamily);
+        localStorage.setItem('editorFontSize', fontSize.toString());
+        localStorage.setItem('editorLineHeight', lineHeight.toString());
+    }, [theme, fontFamily, fontSize, lineHeight]);
+    
+    // Save history to localStorage
+    useEffect(() => {
+        localStorage.setItem('optimizationHistory', JSON.stringify(history));
+    }, [history]);
 
-  const handleSelectHistoryItem = (id: string) => {
-    setActiveHistoryId(id);
-    setIsOptimizationOpen(true);
-    setIsHistoryVisible(false);
-  };
+    // Show help on first visit
+    useEffect(() => {
+        const hasVisited = localStorage.getItem('hasVisited');
+        if (!hasVisited) {
+            setIsHelpOpen(true);
+            localStorage.setItem('hasVisited', 'true');
+        }
+    }, []);
 
-  const closeHelp = () => {
-    setIsHelpOpen(false);
-    localStorage.setItem('hasSeenHelp', 'true');
-  }
+    const handleLanguageChange = (newLang: Language) => {
+        setLanguage(newLang);
+        if (newLang !== 'auto') {
+            setCode(placeholderCode[newLang]);
+            setDetectedLanguage(newLang);
+            setAnalysisResult(null); // Reset analysis on language change
+        }
+    };
+    
+    const handleAnalyze = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        setAnalysisResult(null);
+        
+        try {
+            const lang = await getLanguage(code, language);
+            setDetectedLanguage(lang);
+            const result = await analyzeCode(code, lang);
+            setAnalysisResult(result);
+        } catch (e) {
+            const errorMsg = e instanceof Error ? e.message : 'An unknown error occurred.';
+            setError(errorMsg);
+            setAnalysisResult({ bigO: `Error: Analysis failed`, lines: [] });
+        } finally {
+            setIsLoading(false);
+        }
+    }, [code, language]);
+    
+    const handleOptimize = useCallback(async () => {
+        let langToUse = detectedLanguage;
+        if (!langToUse) {
+            if (language !== 'auto') {
+                langToUse = language;
+            } else {
+                try {
+                    setIsLoading(true);
+                    langToUse = await getLanguage(code, language);
+                    setDetectedLanguage(langToUse);
+                } catch (e) {
+                    const errorMsg = e instanceof Error ? e.message : 'An unknown error occurred.';
+                    setError(errorMsg);
+                    setIsLoading(false);
+                    return;
+                }
+            }
+        }
+        
+        if (!langToUse) {
+            setError("Could not detect language. Please select one manually in Settings.");
+            return;
+        }
 
-  const activeOptimization = optimizationHistory.find(item => item.id === activeHistoryId) || null;
+        setIsLoading(true);
+        setError(null);
 
-  return (
-    <div className="flex h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden">
-      <div className="flex-grow flex flex-col h-full">
-        <main className="flex-grow flex flex-col">
-          <CodeEditor 
-            code={code}
-            onCodeChange={handleCodeChange}
-            analysisLines={analysisLines}
-            language={detectedLanguage}
-            fontFamily={fontFamily}
-            fontSize={fontSize}
-            lineHeight={lineHeight}
-          />
-        </main>
-        <StatusBar 
-          language={language}
-          detectedLanguage={detectedLanguage}
-          bigO={bigO}
-          isLoading={isLoading}
-          onAnalyze={handleAnalyze}
-          onOptimize={handleOptimize}
-          onSettings={() => setIsSettingsOpen(true)}
-          onHelp={() => setIsHelpOpen(true)}
-          onToggleHistory={() => setIsHistoryVisible(v => !v)}
-        />
-      </div>
-      <HistorySidebar 
-          isVisible={isHistoryVisible}
-          history={optimizationHistory}
-          onSelect={handleSelectHistoryItem}
-          onClose={() => setIsHistoryVisible(false)}
-      />
-      {isSettingsOpen && (
-        <SettingsModal 
-          currentLanguage={language}
-          onLanguageChange={setLanguage}
-          currentTheme={theme}
-          onThemeChange={setTheme}
-          fontFamily={fontFamily}
-          onFontFamilyChange={setFontFamily}
-          fontSize={fontSize}
-          onFontSizeChange={setFontSize}
-          lineHeight={lineHeight}
-          onLineHeightChange={setLineHeight}
-          onClose={() => setIsSettingsOpen(false)}
-        />
-      )}
-      {isOptimizationOpen && activeOptimization && (
-        <OptimizationModal 
-          historyItem={activeOptimization}
-          onSendMessage={handleSendMessage}
-          isChatLoading={isChatLoading}
-          onClose={() => setIsOptimizationOpen(false)}
-        />
-      )}
-      {isHelpOpen && <HelpTour onClose={closeHelp} />}
-    </div>
-  );
-}
+        try {
+            const result = await optimizeCode(code, langToUse);
+            const newHistoryItem: OptimizationHistoryItem = {
+                id: `${Date.now()}-${Math.random()}`,
+                timestamp: Date.now(),
+                originalCode: code,
+                language: langToUse,
+                result: result,
+                chatHistory: [],
+            };
+            setHistory(prev => [newHistoryItem, ...prev.slice(0, 49)]); // Keep history to 50 items
+            setActiveHistoryItem(newHistoryItem);
+            setIsOptimizationModalOpen(true);
+        } catch (e) {
+            const errorMsg = e instanceof Error ? e.message : 'An unknown error occurred.';
+            setError(errorMsg);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [code, detectedLanguage, language]);
+    
+    const handleContinueChat = async (message: string) => {
+        if (!activeHistoryItem) return;
+
+        const updatedHistoryItem: OptimizationHistoryItem = { 
+            ...activeHistoryItem,
+            chatHistory: [...activeHistoryItem.chatHistory, { role: 'user', content: message }]
+        };
+        setActiveHistoryItem(updatedHistoryItem);
+        
+        try {
+            const response = await continueChat({
+                originalCode: updatedHistoryItem.originalCode,
+                language: updatedHistoryItem.language,
+                optimizationSuggestion: updatedHistoryItem.result.suggestion,
+                history: updatedHistoryItem.chatHistory.slice(0, -1), // Send history before new user message
+                newUserMessage: message,
+            });
+            
+            updatedHistoryItem.chatHistory.push({ role: 'model', content: response });
+            setActiveHistoryItem({ ...updatedHistoryItem });
+
+            // Update history array
+            setHistory(prev => prev.map(item => item.id === updatedHistoryItem.id ? updatedHistoryItem : item));
+
+        } catch (e) {
+            const errorMsg = e instanceof Error ? e.message : 'An unknown error occurred during chat.';
+            updatedHistoryItem.chatHistory.push({ role: 'model', content: `Error: ${errorMsg}`});
+            setActiveHistoryItem({ ...updatedHistoryItem });
+        }
+    };
+
+    const handleSelectHistoryItem = (id: string) => {
+        const item = history.find(h => h.id === id);
+        if (item) {
+            setCode(item.originalCode);
+            setLanguage(item.language);
+            setDetectedLanguage(item.language);
+            setActiveHistoryItem(item);
+            setIsOptimizationModalOpen(true);
+            setIsHistorySidebarOpen(false);
+            setAnalysisResult(null);
+        }
+    };
+    
+    return (
+        <div className="flex flex-col h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans" data-theme={theme}>
+            <main className="flex-grow flex flex-row overflow-hidden">
+                <CodeEditor
+                    code={code}
+                    onCodeChange={setCode}
+                    analysisLines={analysisResult?.lines || []}
+                    language={detectedLanguage}
+                    fontFamily={fontFamily}
+                    fontSize={fontSize}
+                    lineHeight={lineHeight}
+                    theme={theme}
+                />
+            </main>
+            <StatusBar
+                language={language}
+                detectedLanguage={detectedLanguage}
+                bigO={analysisResult?.bigO || (error ? "Error" : null)}
+                isLoading={isLoading}
+                onAnalyze={handleAnalyze}
+                onOptimize={handleOptimize}
+                onSettings={() => setIsSettingsModalOpen(true)}
+                onHelp={() => setIsHelpOpen(true)}
+                onToggleHistory={() => setIsHistorySidebarOpen(p => !p)}
+            />
+            {isSettingsModalOpen && (
+                <SettingsModal
+                    currentLanguage={language}
+                    onLanguageChange={handleLanguageChange}
+                    currentTheme={theme}
+                    onThemeChange={setTheme}
+                    fontFamily={fontFamily}
+                    onFontFamilyChange={setFontFamily}
+                    fontSize={fontSize}
+                    onFontSizeChange={setFontSize}
+                    lineHeight={lineHeight}
+                    onLineHeightChange={setLineHeight}
+                    onClose={() => setIsSettingsModalOpen(false)}
+                />
+            )}
+            {isOptimizationModalOpen && activeHistoryItem && (
+                 <OptimizationModal
+                    item={activeHistoryItem}
+                    onClose={() => {
+                        setIsOptimizationModalOpen(false);
+                        setActiveHistoryItem(null);
+                    }}
+                    onContinueChat={handleContinueChat}
+                 />
+            )}
+            {isHelpOpen && <HelpTour onClose={() => setIsHelpOpen(false)} />}
+            <HistorySidebar
+                isVisible={isHistorySidebarOpen}
+                history={history}
+                onSelect={handleSelectHistoryItem}
+                onClose={() => setIsHistorySidebarOpen(false)}
+            />
+        </div>
+    );
+};
 
 export default App;

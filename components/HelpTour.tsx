@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 
 interface HelpTourProps {
@@ -8,7 +9,7 @@ interface HelpTourProps {
 const HelpTour: React.FC<HelpTourProps> = ({ onClose }) => {
   return (
     <div 
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      className="modal-backdrop"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
