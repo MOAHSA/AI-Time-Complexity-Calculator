@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import rehypeRaw from 'rehype-raw';
+import remarkGfm from 'remark-gfm';
 
 interface OptimizationModalProps {
   item: OptimizationHistoryItem;
@@ -55,6 +56,7 @@ const ChatBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
         <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-xl lg:max-w-2xl px-4 py-2 rounded-lg prose prose-invert prose-sm ${isUser ? 'bg-[var(--bg-interactive)] text-[var(--text-on-interactive)]' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'}`}>
                 <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeRaw]}
                     components={{
                         code({ node, inline, className, children, ...props }) {
@@ -158,6 +160,7 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
         <div className="flex-grow overflow-y-auto p-6 space-y-6">
             <div className="prose prose-invert max-w-none text-[var(--text-secondary)]">
                 <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeRaw]}
                     components={{
                         code({ node, inline, className, children, ...props }) {
