@@ -128,7 +128,11 @@ ${code}
 };
 
 
-export const optimizeCode = async (code: string, language: ConcreteLanguage): Promise<OptimizationResult> => {
+export const optimizeCode = async (
+  code: string, 
+  language: ConcreteLanguage,
+  existingAnalysis?: AnalysisResult
+): Promise<OptimizationResult> => {
     const model = 'gemini-2.5-pro';
 
     const optimizationSchema = {
@@ -164,6 +168,11 @@ export const optimizeCode = async (code: string, language: ConcreteLanguage): Pr
 
     const prompt = `
 Analyze and suggest optimizations for the following ${language} code to improve its time complexity or performance.
+${existingAnalysis ? `
+An initial complexity analysis has already been performed, yielding this result:
+- Overall Big O: ${existingAnalysis.bigO}
+- You can use this as context, but perform your own deep analysis of the code to find optimization opportunities.
+` : ''}
 
 Your response must be a JSON object that adheres to the provided schema.
 - If the code is already optimal, set "optimized" to true and explain why in the "suggestion" field.

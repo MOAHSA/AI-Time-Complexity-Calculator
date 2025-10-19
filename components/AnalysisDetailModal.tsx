@@ -105,6 +105,7 @@ const AnalysisDetailModal: React.FC<AnalysisDetailModalProps> = ({ code, languag
             showLineNumbers
             wrapLines
             lineProps={getLineProps}
+            lineNumberStyle={{ minWidth: '3.5em', paddingRight: '1em', textAlign: 'right', color: 'var(--text-tertiary)', userSelect: 'none' }}
           >
             {code}
           </SyntaxHighlighter>

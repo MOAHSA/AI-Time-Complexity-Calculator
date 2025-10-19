@@ -13,9 +13,10 @@ interface HelpTourProps {
 const helpContent = `
 This is an AI-powered tool to help you understand code complexity.
 
-*   **Code Editor:** Write or paste your code in the main editor area. After running an analysis, **click on any line number** to see its specific execution count.
+*   **Code Editor:** Write or paste your code in the main editor area.
 *   **Analyze Button:** Click this to start the time complexity analysis. The overall complexity (e.g., $O(n^2)$) will appear in the status bar at the bottom.
-*   **Optimize Button:** After analyzing, click this to get AI-powered suggestions for improving your code's efficiency.
+*   **View Analysis (Document Icon):** After a successful analysis, this icon will appear in the status bar. Click it to see a detailed, line-by-line breakdown of execution counts.
+*   **Optimize Button:** Click this to get AI-powered suggestions for improving your code's efficiency.
 *   **Settings (Gear Icon):** Change the language detection mode, editor appearance, and application theme.
 
 Get started by pasting some code and hitting "Analyze"!

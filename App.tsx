@@ -3,11 +3,13 @@ import CodeEditor from './components/CodeEditor';
 import StatusBar from './components/StatusBar';
 import SettingsModal from './components/SettingsModal';
 import OptimizationModal from './components/OptimizationModal';
+import OptimizeOptionsModal from './components/OptimizeOptionsModal';
 import HelpTour from './components/HelpTour';
 import HistorySidebar from './components/HistorySidebar';
 import AnalysisDetailModal from './components/AnalysisDetailModal';
 import { analyzeCode, optimizeCode, getLanguage, continueChat } from './services/geminiService';
 import type {
+  AnalysisHistoryItem,
   AnalysisResult,
   ChatMessage,
   ConcreteLanguage,
@@ -72,6 +74,7 @@ const App: React.FC = () => {
     // UI State
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
     const [isOptimizationModalOpen, setIsOptimizationModalOpen] = useState<boolean>(false);
+    const [isOptimizeOptionsModalOpen, setIsOptimizeOptionsModalOpen] = useState<boolean>(false);
     const [isAnalysisDetailModalOpen, setIsAnalysisDetailModalOpen] = useState<boolean>(false);
     const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
     const [isHistorySidebarOpen, setIsHistorySidebarOpen] = useState<boolean>(false);
@@ -83,7 +86,7 @@ const App: React.FC = () => {
     const [lineHeight, setLineHeight] = useState<number>(() => parseFloat(localStorage.getItem('editorLineHeight') || '1.5'));
     
     // History State
-    const [history, setHistory] = useState<OptimizationHistoryItem[]>(() => {
+    const [optimizationHistory, setOptimizationHistory] = useState<OptimizationHistoryItem[]>(() => {
         try {
             const savedHistory = localStorage.getItem('optimizationHistory');
             return savedHistory ? JSON.parse(savedHistory) : [];
@@ -91,7 +94,16 @@ const App: React.FC = () => {
             return [];
         }
     });
+    const [analysisHistory, setAnalysisHistory] = useState<AnalysisHistoryItem[]>(() => {
+        try {
+            const savedHistory = localStorage.getItem('analysisHistory');
+            return savedHistory ? JSON.parse(savedHistory) : [];
+        } catch {
+            return [];
+        }
+    });
     const [activeHistoryItem, setActiveHistoryItem] = useState<OptimizationHistoryItem | null>(null);
+    const [isOptimizingFromHistory, setIsOptimizingFromHistory] = useState<boolean>(false);
 
     // Apply theme to the root element
     useEffect(() => {
@@ -108,8 +120,12 @@ const App: React.FC = () => {
     
     // Save history to localStorage
     useEffect(() => {
-        localStorage.setItem('optimizationHistory', JSON.stringify(history));
-    }, [history]);
+        localStorage.setItem('optimizationHistory', JSON.stringify(optimizationHistory));
+    }, [optimizationHistory]);
+    
+    useEffect(() => {
+        localStorage.setItem('analysisHistory', JSON.stringify(analysisHistory));
+    }, [analysisHistory]);
 
     // Show help on first visit
     useEffect(() => {
@@ -119,6 +135,11 @@ const App: React.FC = () => {
             localStorage.setItem('hasVisited', 'true');
         }
     }, []);
+
+    const handleCodeChange = (newCode: string) => {
+        setCode(newCode);
+        setAnalysisResult(null); // Clear stale analysis results when code changes
+    };
 
     const handleLanguageChange = (newLang: Language) => {
         setLanguage(newLang);
@@ -139,6 +160,17 @@ const App: React.FC = () => {
             setDetectedLanguage(lang);
             const result = await analyzeCode(code, lang);
             setAnalysisResult(result);
+
+            // Save to analysis history
+            const newAnalysisItem: AnalysisHistoryItem = {
+                id: `${Date.now()}-${Math.random()}`,
+                timestamp: Date.now(),
+                originalCode: code,
+                language: lang,
+                result: result,
+            };
+            setAnalysisHistory(prev => [newAnalysisItem, ...prev.slice(0, 49)]);
+
         } catch (e) {
             const errorMsg = e instanceof Error ? e.message : 'An unknown error occurred.';
             setError(errorMsg);
@@ -148,53 +180,96 @@ const App: React.FC = () => {
         }
     }, [code, language]);
     
-    const handleOptimize = useCallback(async () => {
-        let langToUse = detectedLanguage;
-        if (!langToUse) {
-            if (language !== 'auto') {
-                langToUse = language;
-            } else {
-                try {
-                    setIsLoading(true);
-                    langToUse = await getLanguage(code, language);
-                    setDetectedLanguage(langToUse);
-                } catch (e) {
-                    const errorMsg = e instanceof Error ? e.message : 'An unknown error occurred.';
-                    setError(errorMsg);
-                    setIsLoading(false);
-                    return;
-                }
-            }
+    const performOptimization = useCallback(async (codeToUse: string, langToUse: ConcreteLanguage, analysisToUse?: AnalysisResult) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const optimizationResult = await optimizeCode(codeToUse, langToUse, analysisToUse);
+            const newHistoryItem: OptimizationHistoryItem = {
+                id: `${Date.now()}-${Math.random()}`,
+                timestamp: Date.now(),
+                originalCode: codeToUse,
+                language: langToUse,
+                result: optimizationResult,
+                chatHistory: [],
+            };
+            setOptimizationHistory(prev => [newHistoryItem, ...prev.slice(0, 49)]);
+            setActiveHistoryItem(newHistoryItem);
+            setIsOptimizationModalOpen(true);
+        } catch (e) {
+            const errorMsg = e instanceof Error ? e.message : 'An unknown error occurred.';
+            setError(errorMsg);
+            setAnalysisResult({ bigO: `Error: Failed`, lines: [] });
+        } finally {
+            setIsLoading(false);
         }
-        
-        if (!langToUse) {
-            setError("Could not detect language. Please select one manually in Settings.");
+    }, []);
+    
+    const handleInitiateOptimization = useCallback(async (strategy: 'analyze' | 'direct' | 'upload' | 'history') => {
+        setIsOptimizeOptionsModalOpen(false);
+
+        if (strategy === 'history') {
+            setIsOptimizingFromHistory(true);
+            setIsHistorySidebarOpen(true);
             return;
+        }
+
+        let codeToUse = code;
+        let langToUse = detectedLanguage;
+        let analysisToUse: AnalysisResult | null | undefined = strategy === 'direct' ? analysisResult : null;
+
+        if (strategy === 'upload') {
+            const file = await new Promise<File | null>(resolve => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.py,.java,.cpp,.txt';
+                input.onchange = e => resolve((e.target as HTMLInputElement).files?.[0] ?? null);
+                input.addEventListener('cancel', () => resolve(null));
+                input.click();
+            });
+    
+            if (!file) return;
+    
+            codeToUse = await file.text();
+            handleCodeChange(codeToUse); // Use handler to set code and clear analysis
+            analysisToUse = null;
+            langToUse = null; // Will need to be redetected
         }
 
         setIsLoading(true);
         setError(null);
 
         try {
-            const result = await optimizeCode(code, langToUse);
-            const newHistoryItem: OptimizationHistoryItem = {
-                id: `${Date.now()}-${Math.random()}`,
-                timestamp: Date.now(),
-                originalCode: code,
-                language: langToUse,
-                result: result,
-                chatHistory: [],
-            };
-            setHistory(prev => [newHistoryItem, ...prev.slice(0, 49)]); // Keep history to 50 items
-            setActiveHistoryItem(newHistoryItem);
-            setIsOptimizationModalOpen(true);
+            if (!langToUse) {
+                langToUse = await getLanguage(codeToUse, language);
+                setDetectedLanguage(langToUse);
+            }
+            
+            if (strategy === 'analyze' || strategy === 'upload') {
+                const result = await analyzeCode(codeToUse, langToUse);
+                setAnalysisResult(result);
+                analysisToUse = result;
+    
+                const newAnalysisItem: AnalysisHistoryItem = {
+                    id: `${Date.now()}-${Math.random()}`,
+                    timestamp: Date.now(),
+                    originalCode: codeToUse,
+                    language: langToUse,
+                    result: result,
+                };
+                setAnalysisHistory(prev => [newAnalysisItem, ...prev.slice(0, 49)]);
+            }
+
+            await performOptimization(codeToUse, langToUse, analysisToUse ?? undefined);
+
         } catch (e) {
             const errorMsg = e instanceof Error ? e.message : 'An unknown error occurred.';
             setError(errorMsg);
-        } finally {
+            setAnalysisResult({ bigO: `Error: Failed`, lines: [] });
             setIsLoading(false);
         }
-    }, [code, detectedLanguage, language]);
+
+    }, [code, language, detectedLanguage, analysisResult, performOptimization]);
     
     const handleContinueChat = async (message: string, depth: 'short' | 'deep' | 'page') => {
         if (!activeHistoryItem) return;
@@ -229,7 +304,7 @@ const App: React.FC = () => {
                 chatHistory: [...activeHistoryItem.chatHistory, userMessage, modelMessage]
             };
             setActiveHistoryItem(finalHistoryItem);
-            setHistory(prev => prev.map(item => item.id === finalHistoryItem.id ? finalHistoryItem : item));
+            setOptimizationHistory(prev => prev.map(item => item.id === finalHistoryItem.id ? finalHistoryItem : item));
 
         } catch (e) {
             const errorMsg = e instanceof Error ? e.message : 'An unknown error occurred during chat.';
@@ -239,12 +314,12 @@ const App: React.FC = () => {
                 chatHistory: [...activeHistoryItem.chatHistory, userMessage, errorMessage]
             };
             setActiveHistoryItem(finalHistoryItem);
-            setHistory(prev => prev.map(item => item.id === finalHistoryItem.id ? finalHistoryItem : item));
+            setOptimizationHistory(prev => prev.map(item => item.id === finalHistoryItem.id ? finalHistoryItem : item));
         }
     };
 
-    const handleSelectHistoryItem = (id: string) => {
-        const item = history.find(h => h.id === id);
+    const handleSelectOptimizationHistoryItem = (id: string) => {
+        const item = optimizationHistory.find(h => h.id === id);
         if (item) {
             setCode(item.originalCode);
             setLanguage(item.language);
@@ -256,12 +331,30 @@ const App: React.FC = () => {
         }
     };
     
+    const handleSelectAnalysisHistoryItem = (id: string) => {
+        const item = analysisHistory.find(h => h.id === id);
+        if (item) {
+            setCode(item.originalCode);
+            setLanguage(item.language);
+            setDetectedLanguage(item.language);
+            setAnalysisResult(item.result);
+            setIsHistorySidebarOpen(false);
+    
+            if (isOptimizingFromHistory) {
+                setIsOptimizingFromHistory(false); // Reset the flag
+                performOptimization(item.originalCode, item.language, item.result);
+            } else {
+                setIsAnalysisDetailModalOpen(true);
+            }
+        }
+    };
+    
     return (
         <div className="flex flex-col h-screen font-sans">
             <main className="flex-grow flex flex-row overflow-hidden">
                 <CodeEditor
                     code={code}
-                    onCodeChange={setCode}
+                    onCodeChange={handleCodeChange}
                     analysisLines={analysisResult?.lines || []}
                     language={detectedLanguage}
                     fontFamily={fontFamily}
@@ -277,7 +370,7 @@ const App: React.FC = () => {
                 bigO={analysisResult?.bigO || (error ? "Error" : null)}
                 isLoading={isLoading}
                 onAnalyze={handleAnalyze}
-                onOptimize={handleOptimize}
+                onOptimize={() => setIsOptimizeOptionsModalOpen(true)}
                 onShowAnalysis={() => setIsAnalysisDetailModalOpen(true)}
                 onSettings={() => setIsSettingsModalOpen(true)}
                 onHelp={() => setIsHelpOpen(true)}
@@ -296,6 +389,13 @@ const App: React.FC = () => {
                     lineHeight={lineHeight}
                     onLineHeightChange={setLineHeight}
                     onClose={() => setIsSettingsModalOpen(false)}
+                />
+            )}
+            {isOptimizeOptionsModalOpen && (
+                <OptimizeOptionsModal
+                    onClose={() => setIsOptimizeOptionsModalOpen(false)}
+                    onSelectStrategy={handleInitiateOptimization}
+                    hasAnalysis={!!analysisResult}
                 />
             )}
             {isOptimizationModalOpen && activeHistoryItem && (
@@ -319,8 +419,10 @@ const App: React.FC = () => {
             {isHelpOpen && <HelpTour onClose={() => setIsHelpOpen(false)} />}
             <HistorySidebar
                 isVisible={isHistorySidebarOpen}
-                history={history}
-                onSelect={handleSelectHistoryItem}
+                optimizationHistory={optimizationHistory}
+                analysisHistory={analysisHistory}
+                onSelectOptimization={handleSelectOptimizationHistoryItem}
+                onSelectAnalysis={handleSelectAnalysisHistoryItem}
                 onClose={() => setIsHistorySidebarOpen(false)}
             />
         </div>

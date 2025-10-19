@@ -38,3 +38,11 @@ export interface OptimizationHistoryItem {
   result: OptimizationResult;
   chatHistory: ChatMessage[];
 }
+
+export interface AnalysisHistoryItem {
+  id: string;
+  timestamp: number;
+  originalCode: string;
+  language: ConcreteLanguage;
+  result: AnalysisResult;
+}

@@ -16,10 +16,14 @@ An intelligent, AI-powered code editor designed to analyze code complexity, prov
 
 1.  **Write Code:** Write or paste your code into the editor. You can select a specific language in the settings, or leave it on "Auto" for automatic detection.
 2.  **Analyze Complexity:** Click the **Analyze** button in the status bar. The overall Big O notation will appear at the bottom.
-3.  **View Line Details:** After the analysis is complete, **click on any line number** in the gutter to see a tooltip with its specific execution count and analysis.
-4.  **Get Optimizations:** Click the **Optimize** button. A modal will appear with the AI's suggestions, learning resources, and a chat window.
-5.  **Discuss with AI:** Use the chat input in the optimization modal to ask follow-up questions about the suggested changes or related concepts.
-6.  **Review History:** Click the **History** (clock) icon in the status bar to open the sidebar and browse your past optimization sessions.
+3.  **View Line Details:** After the analysis is complete, click the **View Analysis** (document) icon in the status bar to see a modal with a line-by-line execution count breakdown.
+4.  **Get Optimizations:** Click the **Optimize** button. A modal will appear asking you to choose your optimization strategy:
+    -   **Analyze & Optimize:** Runs a fresh analysis on the current code for the most accurate optimization.
+    -   **Use Last Analysis:** Uses the results from the last analysis you performed on the current code.
+    -   **Choose from History:** Opens the history sidebar to let you select a past analysis as context.
+    -   **Upload & Optimize:** Allows you to upload a code file from your computer.
+5.  **Discuss with AI:** After an optimization is generated, use the chat input to ask follow-up questions about the suggested changes or related concepts.
+6.  **Review History:** Click the **History** (clock) icon in the status bar to open the sidebar and browse your past analysis and optimization sessions.
 7.  **Customize Settings:** Click the **Settings** (gear) icon to change the application theme, editor font, font size, and line height.
 
 ## Local Development & Installation
