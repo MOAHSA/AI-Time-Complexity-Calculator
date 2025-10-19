@@ -24,23 +24,46 @@ An intelligent, AI-powered code editor designed to analyze code complexity, prov
 
 ## Local Development & Installation
 
-This project is built with modern web technologies and is designed to run in an environment that supports ES modules and `importmap` natively, without requiring a complex build setup.
+This project runs directly in the browser without a build step. Follow these instructions to run it on your local machine.
 
 ### Prerequisites
 
 -   A modern web browser (e.g., Chrome, Firefox, Edge).
--   A local web server to serve the project files. The [Live Server extension for VS Code](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) is a great option, or you can use a simple command-line server like `python3 -m http.server`.
--   A Google Gemini API key.
+-   A Google Gemini API key. You can get one from [Google AI Studio](https://aistudio.google.com/app/apikey).
+-   A local web server. If you have Python installed, you can use its built-in server.
 
 ### Setup Instructions
 
 1.  **Get the Code:** Clone the repository or download the source files to your local machine.
-2.  **Set API Key:** The application is hard-coded to look for the Gemini API key in `process.env.API_KEY`. In a production environment or one with a build system, this would be injected. For local development, you must ensure this variable is available to the application when it runs. *The specific method for this will depend on the environment you are serving the project from.*
-3.  **Serve the Files:** Start a local web server in the root directory of the project. For example, if you have Python 3 installed, you can run:
     ```bash
-    python3 -m http.server
+    git clone https://github.com/your-repo/ai-complexity-tool.git
+    cd ai-complexity-tool
     ```
-4.  **Open in Browser:** Open your web browser and navigate to the local server's address (e.g., `http://localhost:8000`).
+
+2.  **Configure Your API Key:**
+    For local development, you must insert your API key directly into the code.
+    -   Open the file `services/geminiService.ts` in a text editor.
+    -   Find the following line (near the top of the file):
+        ```typescript
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        ```
+    -   Replace `process.env.API_KEY` with your actual Gemini API key, wrapped in quotes. It should look like this:
+        ```typescript
+        const ai = new GoogleGenAI({ apiKey: "YOUR_API_KEY_HERE" });
+        ```
+    -   **IMPORTANT:** Do not commit this change or share this file publicly with your API key inside it. This modification is for local testing only.
+
+3.  **Serve the Files:**
+    -   Open your terminal or command prompt in the project's root directory.
+    -   Start a simple local web server. If you have Python 3, run:
+        ```bash
+        python3 -m http.server
+        ```
+        If you have an older version of Python, you might need to use `python -m SimpleHTTPServer`.
+
+4.  **Open in Browser:**
+    -   Open your web browser and navigate to the address provided by your local server. It is typically `http://localhost:8000`.
+    -   The application should now be running and fully functional.
 
 ## Project Structure
 
@@ -75,4 +98,3 @@ The project is organized into a clear and maintainable structure.
 -   **Styling:** TailwindCSS (via CDN), CSS variables for theming
 -   **Markdown Rendering:** `react-markdown`
 -   **Syntax Highlighting:** `react-syntax-highlighter` (for markdown code blocks)
-```
