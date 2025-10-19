@@ -61,6 +61,17 @@ std::vector<int> findDuplicates(std::vector<int> arr) {
     }
     return duplicates;
 }`,
+  pseudocode: `FUNCTION bubbleSort(array)
+  n = length of array
+  LOOP n-1 times
+    FOR i FROM 0 TO n-2
+      IF array[i] > array[i+1]
+        SWAP array[i] AND array[i+1]
+      ENDIF
+    ENDFOR
+  ENDLOOP
+  RETURN array
+ENDFUNCTION`,
 };
 
 const App: React.FC = () => {
@@ -367,7 +378,7 @@ const App: React.FC = () => {
         if (!code.trim()) return;
 
         const lang = detectedLanguage || 'txt';
-        const extensionMap: { [key: string]: string } = { python: 'py', java: 'java', cpp: 'cpp', txt: 'txt' };
+        const extensionMap: { [key: string]: string } = { python: 'py', java: 'java', cpp: 'cpp', pseudocode: 'txt', txt: 'txt' };
         const extension = extensionMap[lang] || 'txt';
         const filename = `code.${extension}`;
 

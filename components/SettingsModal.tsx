@@ -25,6 +25,7 @@ const languageOptions: { id: Language; name: string }[] = [
   { id: 'python', name: 'Python' },
   { id: 'java', name: 'Java' },
   { id: 'cpp', name: 'C++' },
+  { id: 'pseudocode', name: 'Pseudocode' },
 ];
 
 const themeOptions: { id: string; name: string }[] = [

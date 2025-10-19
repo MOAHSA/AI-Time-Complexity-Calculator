@@ -1,7 +1,7 @@
 import React from 'react';
 
 // FIX: Add all necessary type definitions and export them.
-export type ConcreteLanguage = 'python' | 'java' | 'cpp';
+export type ConcreteLanguage = 'python' | 'java' | 'cpp' | 'pseudocode';
 export type Language = ConcreteLanguage | 'auto';
 export type ModelPreference = 'speed' | 'quality';
 

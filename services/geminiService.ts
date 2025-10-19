@@ -24,14 +24,14 @@ export const getLanguage = async (code: string, languageHint: Language): Promise
     try {
         const response = await ai.models.generateContent({
             model: model,
-            contents: `Detect the programming language of the following code. Respond with only one of 'python', 'java', or 'cpp'.\n\nCode:\n\`\`\`\n${code}\n\`\`\``,
+            contents: `Detect the programming language of the following code. The code might also be pseudocode. Respond with only one of 'python', 'java', 'cpp', or 'pseudocode'.\n\nCode:\n\`\`\`\n${code}\n\`\`\``,
             config: {
                 temperature: 0,
             }
         });
 
         const lang = response.text.trim().toLowerCase();
-        if (lang === 'python' || lang === 'java' || lang === 'cpp') {
+        if (lang === 'python' || lang === 'java' || lang === 'cpp' || lang === 'pseudocode') {
             return lang;
         }
         console.warn('Language detection failed, falling back to python. Response:', lang);

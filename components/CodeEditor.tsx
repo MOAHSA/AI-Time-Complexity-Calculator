@@ -7,6 +7,7 @@ import { python } from '@codemirror/lang-python';
 // It's aliased to `javaLang` to avoid this conflict.
 import { java as javaLang } from '@codemirror/lang-java';
 import { cpp } from '@codemirror/lang-cpp';
+import { StreamLanguage } from '@codemirror/language';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { solarizedLight } from '@uiw/codemirror-theme-solarized';
 import { nord } from '@uiw/codemirror-theme-nord';
@@ -62,6 +63,56 @@ const lineAnalysisHighlight = (analysisLines: LineAnalysis[]) => {
   );
 };
 
+const pseudocodeKeywords = new Set([
+    'FUNCTION', 'PROCEDURE', 'BEGIN', 'END', 'IF', 'THEN', 'ELSE', 'ENDIF',
+    'WHILE', 'DO', 'ENDWHILE', 'FOR', 'TO', 'STEP', 'ENDFOR', 'REPEAT',
+    'UNTIL', 'LOOP', 'ENDLOOP', 'RETURN', 'INPUT', 'OUTPUT', 'PRINT',
+    'READ', 'WRITE', 'CALL', 'SET', 'DECLARE', 'TRUE', 'FALSE', 'NULL',
+    'ALGORITHM', 'VAR', 'INTEGER', 'STRING', 'BOOLEAN', 'ARRAY', 'OF',
+    'SWAP', 'WITH'
+]);
+
+const pseudocodeLanguage = StreamLanguage.define({
+    token(stream) {
+        if (stream.eatSpace()) return null;
+
+        if (stream.match("//") || stream.match("#") || stream.match("--")) {
+            stream.skipToEnd();
+            return "lineComment";
+        }
+
+        if (stream.match(/"(?:[^"\\]|\\.)*"?/) || stream.match(/'(?:[^'\\]|\\.)*'?/)) {
+            return "string";
+        }
+
+        if (stream.match(/^[0-9\.+-]+/)) {
+            return "number";
+        }
+        
+        if (stream.match(/^[=<>!+\-*/%&|~^]+/)) {
+            return "operator";
+        }
+
+        if (stream.eatWhile(/[\w_]/)) {
+            const word = stream.current().toUpperCase();
+            if (pseudocodeKeywords.has(word)) {
+                return "keyword";
+            }
+            // Not a keyword, just a regular word. We've advanced, so returning null is fine.
+            return null;
+        }
+
+        // Fallback for any other character to prevent infinite loops.
+        // This is the fix for "Stream parser failed to advance stream."
+        stream.next();
+        return null;
+    },
+    languageData: {
+        commentTokens: { line: "//" }
+    }
+});
+
+
 const CodeEditor: React.FC<CodeEditorProps> = ({
   code,
   onCodeChange,
@@ -79,6 +130,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       // FIX: Use the aliased `javaLang` import.
       case 'java': return [javaLang()];
       case 'cpp': return [cpp()];
+      case 'pseudocode': return [pseudocodeLanguage];
       default: return [];
     }
   }, [language]);
