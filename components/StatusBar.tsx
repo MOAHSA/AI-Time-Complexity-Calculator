@@ -1,13 +1,15 @@
 import React from 'react';
-import type { Language, ConcreteLanguage } from '../types';
+import type { Language, ConcreteLanguage, AnalysisResult } from '../types';
 
 interface StatusBarProps {
   language: Language;
   detectedLanguage: ConcreteLanguage | null;
+  analysisResult: AnalysisResult | null;
   bigO: string | null;
   isLoading: boolean;
   onAnalyze: () => void;
   onOptimize: () => void;
+  onShowAnalysis: () => void;
   onSettings: () => void;
   onHelp: () => void;
   onToggleHistory: () => void;
@@ -23,10 +25,12 @@ const Spinner: React.FC = () => (
 const StatusBar: React.FC<StatusBarProps> = ({
   language,
   detectedLanguage,
+  analysisResult,
   bigO,
   isLoading,
   onAnalyze,
   onOptimize,
+  onShowAnalysis,
   onSettings,
   onHelp,
   onToggleHistory
@@ -67,6 +71,17 @@ const StatusBar: React.FC<StatusBarProps> = ({
       </div>
       <div className="flex items-center space-x-2 text-[var(--text-secondary)]">
         <div className="pl-2 border-l border-[var(--border-secondary)] flex items-center space-x-2">
+            <button
+              onClick={onShowAnalysis}
+              disabled={!analysisResult || analysisResult.lines.length === 0}
+              className="p-2 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="View analysis details"
+              title="View analysis details"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </button>
             <button onClick={onToggleHistory} className="p-2 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors" aria-label="Toggle History">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" />

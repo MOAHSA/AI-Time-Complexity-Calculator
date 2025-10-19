@@ -59,7 +59,7 @@ export const analyzeCode = async (code: string, language: ConcreteLanguage): Pro
             },
             lines: {
                 type: Type.ARRAY,
-                description: 'An array of objects, where each object represents a line of code that contributes to the complexity.',
+                description: 'An array of objects, one for EACH line in the provided code. The array length must match the number of lines in the code.',
                 items: {
                     type: Type.OBJECT,
                     properties: {
@@ -69,11 +69,11 @@ export const analyzeCode = async (code: string, language: ConcreteLanguage): Pro
                         },
                         executionCount: {
                             type: Type.STRING,
-                            description: 'A concise representation of how many times this line executes, using Big O notation variables (e.g., "1", "n", "n/2", "log n", "n^2").'
+                            description: 'A concise representation of how many times this line executes (e.g., "1", "n", "n^2"). For non-executable lines like comments, blank lines, or braces, use a descriptive term like "Comment", "Blank", or "N/A".'
                         },
                         analysis: {
                             type: Type.STRING,
-                            description: 'A brief explanation of how this line contributes to the overall time complexity, elaborating on the execution count.'
+                            description: 'A brief explanation for the execution count. For non-executable lines, state what the line is (e.g., "Comment", "Blank line", "Closing brace").'
                         }
                     },
                     required: ['lineNumber', 'executionCount', 'analysis']
@@ -84,16 +84,23 @@ export const analyzeCode = async (code: string, language: ConcreteLanguage): Pro
     };
 
     const prompt = `
-Analyze the time complexity of the following ${language} code.
+Analyze the time complexity of the following ${language} code. Your task is to provide a detailed, line-by-line breakdown of the execution count for EVERY line of code.
 
-Provide the following:
-1.  The overall time complexity in Big O notation.
-2.  A line-by-line analysis for the most significant lines of code that contribute to this complexity. For each of these lines, provide:
-    a. The line number.
-    b. A concise "executionCount" (e.g., "n", "1", "n^2").
-    c. A brief "analysis" explaining its contribution.
+Your analysis must be thorough and account for all language constructs, including built-in functions, recursion, and complex data structures.
 
-Your response must be in JSON format matching the provided schema.
+Provide the following in a JSON object:
+1.  'bigO': The overall time complexity in Big O notation.
+2.  'lines': An array of objects, one for EACH line in the provided code, from line 1 to the last line. The length of this array must be equal to the total number of lines in the code. Each object must contain:
+    a. 'lineNumber': The 1-based line number.
+    b. 'executionCount': A concise string representing how many times this line executes (e.g., "1", "n", "n*log(n)", "n^2").
+    c. 'analysis': A brief explanation for the execution count.
+
+**CRITICAL INSTRUCTIONS:**
+-   For lines that do not execute code (e.g., comments, blank lines, closing braces), you MUST still include them. For these, set 'executionCount' to a descriptive term like "Comment", "Blank", or "N/A" and explain in 'analysis'.
+-   Function definitions are executed once. A loop header like \`for i in range(n)\` is executed 'n+1' times (for the final check), while its body is executed 'n' times. Be precise.
+-   The final JSON output's "lines" array MUST have the same number of elements as lines in the input code.
+
+Your response must be a JSON object that adheres to the provided schema.
 
 Code:
 \`\`\`${language}

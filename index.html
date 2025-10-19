@@ -106,9 +106,6 @@
         .cm-line-highlighted {
             background-color: rgba(135, 131, 120, 0.15);
         }
-        .cm-gutters {
-          cursor: pointer;
-        }
 
         .modal-backdrop {
             position: fixed;
@@ -202,19 +199,6 @@
             margin-bottom: 0.5rem;
         }
         
-        .analysis-tooltip {
-            position: fixed;
-            background-color: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 1px solid var(--border-primary);
-            padding: 8px 12px;
-            border-radius: 6px;
-            z-index: 100;
-            font-size: 0.875rem;
-            pointer-events: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
         .loading-dots span {
             animation: pulse 1.4s infinite;
         }
@@ -234,6 +218,36 @@
             }
         }
         
+        /* Styles for the Analysis Detail Modal code view */
+        .analysis-code-view .code-line {
+            display: flex !important;
+            align-items: center;
+        }
+
+        .analysis-code-view .code-line::before {
+            content: attr(data-execution-count);
+            flex-shrink: 0;
+            text-align: right;
+            width: 6rem;
+            padding-right: 1rem;
+            color: var(--text-tertiary);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8em;
+            opacity: 0.7;
+            white-space: pre;
+        }
+
+        .analysis-code-view .code-line.non-executable::before {
+            opacity: 0.4;
+            font-style: italic;
+        }
+
+        .analysis-code-view pre {
+            background-color: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100%;
+        }
     </style>
     <script type="importmap">
     {

@@ -5,6 +5,7 @@ import SettingsModal from './components/SettingsModal';
 import OptimizationModal from './components/OptimizationModal';
 import HelpTour from './components/HelpTour';
 import HistorySidebar from './components/HistorySidebar';
+import AnalysisDetailModal from './components/AnalysisDetailModal';
 import { analyzeCode, optimizeCode, getLanguage, continueChat } from './services/geminiService';
 import type {
   AnalysisResult,
@@ -71,6 +72,7 @@ const App: React.FC = () => {
     // UI State
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
     const [isOptimizationModalOpen, setIsOptimizationModalOpen] = useState<boolean>(false);
+    const [isAnalysisDetailModalOpen, setIsAnalysisDetailModalOpen] = useState<boolean>(false);
     const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
     const [isHistorySidebarOpen, setIsHistorySidebarOpen] = useState<boolean>(false);
     
@@ -261,7 +263,6 @@ const App: React.FC = () => {
                     code={code}
                     onCodeChange={setCode}
                     analysisLines={analysisResult?.lines || []}
-                    hasAnalysisRun={analysisResult !== null}
                     language={detectedLanguage}
                     fontFamily={fontFamily}
                     fontSize={fontSize}
@@ -272,10 +273,12 @@ const App: React.FC = () => {
             <StatusBar
                 language={language}
                 detectedLanguage={detectedLanguage}
+                analysisResult={analysisResult}
                 bigO={analysisResult?.bigO || (error ? "Error" : null)}
                 isLoading={isLoading}
                 onAnalyze={handleAnalyze}
                 onOptimize={handleOptimize}
+                onShowAnalysis={() => setIsAnalysisDetailModalOpen(true)}
                 onSettings={() => setIsSettingsModalOpen(true)}
                 onHelp={() => setIsHelpOpen(true)}
                 onToggleHistory={() => setIsHistorySidebarOpen(p => !p)}
@@ -304,6 +307,14 @@ const App: React.FC = () => {
                     }}
                     onContinueChat={handleContinueChat}
                  />
+            )}
+             {isAnalysisDetailModalOpen && (
+                <AnalysisDetailModal
+                    code={code}
+                    language={detectedLanguage}
+                    analysis={analysisResult}
+                    onClose={() => setIsAnalysisDetailModalOpen(false)}
+                />
             )}
             {isHelpOpen && <HelpTour onClose={() => setIsHelpOpen(false)} />}
             <HistorySidebar
