@@ -5,6 +5,9 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+
 
 interface OptimizationModalProps {
   item: OptimizationHistoryItem;
@@ -54,10 +57,10 @@ const ChatBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
     const isUser = message.role === 'user';
     return (
         <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-xl lg:max-w-2xl px-4 py-2 rounded-lg prose prose-invert prose-sm ${isUser ? 'bg-[var(--bg-interactive)] text-[var(--text-on-interactive)]' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'}`}>
+            <div className={`max-w-xl lg:max-w-2xl px-4 py-2 rounded-lg prose prose-invert prose-sm overflow-x-auto ${isUser ? 'bg-[var(--bg-interactive)] text-[var(--text-on-interactive)]' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'}`}>
                 <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeRaw]}
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeRaw, rehypeKatex]}
                     components={{
                         code({ node, inline, className, children, ...props }) {
                             const [isCopied, setIsCopied] = useState(false);
@@ -181,10 +184,10 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
         </div>
 
         <div className="flex-grow overflow-y-auto p-6 space-y-6">
-            <div className="prose prose-invert max-w-none text-[var(--text-secondary)]">
+            <div className="prose prose-invert max-w-none text-[var(--text-secondary)] overflow-x-auto">
                 <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeRaw]}
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeRaw, rehypeKatex]}
                     components={{
                         code({ node, inline, className, children, ...props }) {
                              const [isCopied, setIsCopied] = useState(false);
@@ -255,24 +258,26 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ item, onClose, on
         </div>
 
         <div className="p-4 border-t border-[var(--border-primary)] flex-shrink-0">
-          <form onSubmit={handleChatSubmit} className="flex space-x-2">
-            <input
-              type="text"
-              value={chatInput}
-              onChange={e => setChatInput(e.target.value)}
-              placeholder="Ask a follow-up question..."
-              className="flex-grow bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-md p-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--ring-color)] focus:border-[var(--ring-color)]"
-              aria-label="Chat input"
-            />
-            <button
-              type="submit"
-              className="bg-[var(--bg-interactive)] hover:bg-[var(--bg-interactive-hover)] disabled:bg-[var(--bg-interactive-disabled)] text-[var(--text-on-interactive)] font-semibold py-2 px-4 rounded-md transition-colors"
-              disabled={!chatInput.trim()}
-              aria-label="Send message"
-            >
-              Send
-            </button>
-          </form>
+          <div className={`mx-auto transition-all duration-300 ${isFullScreen ? 'max-w-4xl' : 'max-w-full'}`}>
+            <form onSubmit={handleChatSubmit} className="flex space-x-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                placeholder="Ask a follow-up question..."
+                className="flex-grow bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-md p-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--ring-color)] focus:border-[var(--ring-color)]"
+                aria-label="Chat input"
+              />
+              <button
+                type="submit"
+                className="bg-[var(--bg-interactive)] hover:bg-[var(--bg-interactive-hover)] disabled:bg-[var(--bg-interactive-disabled)] text-[var(--text-on-interactive)] font-semibold py-2 px-4 rounded-md transition-colors"
+                disabled={!chatInput.trim()}
+                aria-label="Send message"
+              >
+                Send
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     </div>
