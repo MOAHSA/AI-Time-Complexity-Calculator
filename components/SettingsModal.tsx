@@ -179,27 +179,67 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           
           {/* AI Section */}
           <div className="settings-section">
-            <h3 className="text-lg font-medium text-[var(--text-primary)] mb-3">AI</h3>
-            <div>
-              <label className="block text-sm text-[var(--text-tertiary)] mb-2">Model Preference</label>
-              <div className="flex bg-[var(--bg-tertiary)] p-1 rounded-md">
-                {modelOptions.map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => onModelPreferenceChange(opt.id)}
-                    className={`w-full p-2 rounded text-center text-sm font-semibold transition-colors duration-200 ${
-                      modelPreference === opt.id
-                        ? 'bg-[var(--bg-interactive)] text-[var(--text-on-interactive)] shadow-sm'
-                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-quaternary)]'
-                    }`}
-                  >
-                    {opt.name}
-                  </button>
-                ))}
+            <h3 className="text-lg font-medium text-[var(--text-primary)] mb-3">AI Configuration</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-[var(--text-tertiary)] mb-2">API Keys</label>
+                <div className="space-y-3 p-3 bg-[var(--bg-tertiary)] rounded-md border border-[var(--border-secondary)]">
+                   <div>
+                       <label htmlFor="api-key-gemini" className="block text-sm font-medium text-[var(--text-primary)]">Google Gemini</label>
+                       <input
+                           id="api-key-gemini"
+                           type="text"
+                           placeholder="Using pre-configured key"
+                           disabled
+                           className="mt-1 w-full bg-[var(--bg-quaternary)] border border-[var(--border-secondary)] rounded-md p-2 text-[var(--text-tertiary)] cursor-not-allowed"
+                       />
+                       <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                           The API key is securely managed by the application's environment.
+                       </p>
+                   </div>
+                   <div>
+                       <label htmlFor="api-key-openai" className="block text-sm text-[var(--text-tertiary)]">OpenAI (ChatGPT)</label>
+                       <input
+                           id="api-key-openai"
+                           type="password"
+                           placeholder="Coming soon"
+                           disabled
+                           className="mt-1 w-full bg-[var(--bg-quaternary)] border border-[var(--border-secondary)] rounded-md p-2 text-[var(--text-tertiary)] cursor-not-allowed"
+                       />
+                   </div>
+                   <div>
+                       <label htmlFor="api-key-deepseek" className="block text-sm text-[var(--text-tertiary)]">DeepSeek</label>
+                       <input
+                           id="api-key-deepseek"
+                           type="password"
+                           placeholder="Coming soon"
+                           disabled
+                           className="mt-1 w-full bg-[var(--bg-quaternary)] border border-[var(--border-secondary)] rounded-md p-2 text-[var(--text-tertiary)] cursor-not-allowed"
+                       />
+                   </div>
+                </div>
               </div>
-               <p className="text-xs text-[var(--text-tertiary)] mt-2">
-                "Quality" uses a more powerful model for deeper analysis. "Speed" uses a faster model for quicker results.
-              </p>
+              <div>
+                <label className="block text-sm text-[var(--text-tertiary)] mb-2">Gemini Model Preference</label>
+                <div className="flex bg-[var(--bg-tertiary)] p-1 rounded-md">
+                  {modelOptions.map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => onModelPreferenceChange(opt.id)}
+                      className={`w-full p-2 rounded text-center text-sm font-semibold transition-colors duration-200 ${
+                        modelPreference === opt.id
+                          ? 'bg-[var(--bg-interactive)] text-[var(--text-on-interactive)] shadow-sm'
+                          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-quaternary)]'
+                      }`}
+                    >
+                      {opt.name}
+                    </button>
+                  ))}
+                </div>
+                 <p className="text-xs text-[var(--text-tertiary)] mt-2">
+                  "Quality" uses a more powerful model for deeper analysis. "Speed" uses a faster model for quicker results.
+                </p>
+              </div>
             </div>
           </div>
         </div>
